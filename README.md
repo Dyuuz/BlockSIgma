@@ -1,4 +1,4 @@
-#  MYTRADEGENIUS FastAPI MVC Application
+#  BLOCKSIGMA FastAPI Application
 
 This project is a cryptocurrency prediction system built with **FastAPI**, using **LSTM** and **XGBoost** models to generate 12-hour price predictions for active USDT trading pairs. It integrates with **Binance**, and **PostgreSQL**, with scheduled background tasks via **APScheduler**.
 
