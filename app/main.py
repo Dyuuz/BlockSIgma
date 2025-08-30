@@ -4,11 +4,13 @@ import sys
 if sys.platform.startswith("win"):
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from app.jinja_view import views_router
 from app.views.predictions.prediction_main_12hr import get_current_predictions, run_predictions_for_chunk
 from app.views.predictions.prediction_main_4hr import get_current_predictions as refresh_4hr_prediction
 from app.views.predictions.prediction_main_4hr import run_predictions_for_chunk as run_4hr_prediction
@@ -74,6 +76,7 @@ app.add_middleware(
 # Include routers
 app.include_router(price_router_12hr)
 app.include_router(price_router_4hr)
+app.include_router(views_router)
 # app.include_router(user_router)
 # app.include_router(mail_router)
 # app.include_router(signal_router)
@@ -85,14 +88,10 @@ async def on_startup():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-# Root endpoint
-@app.get("/")
-def read_root():
-    return {
-        "message": "Welcome to MYTRADEGENIUS MVC Application",
-        "docs": "/docs",
-        "redoc": "/redoc"
-    }
+# Home Route
+@app.get("/", response_class=HTMLResponse)
+async def landing_page(request: Request):
+    return templates.TemplateResponse("home.html", {"request": request, "title": "Welcome to BlockSigma!!"})
 
 # Health check endpoint
 @app.get("/health")
