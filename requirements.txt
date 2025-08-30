@@ -50,6 +50,9 @@ pytest==8.4.1
 pytest-cov==4.1.0
 pytest-asyncio==1.0.0
 
+# templates
+jinja2
+
 memory-profiler==0.61.0
 celery==5.5.3
 python-dateutil==2.9.0

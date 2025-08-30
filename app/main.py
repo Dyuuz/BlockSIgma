@@ -1,5 +1,12 @@
+import asyncio
+import sys
+
+if sys.platform.startswith("win"):
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from app.views.predictions.prediction_main_12hr import get_current_predictions, run_predictions_for_chunk
@@ -11,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from apscheduler.executors.asyncio import AsyncIOExecutor
 from sqlalchemy.future import select
 
+from fastapi.templating import Jinja2Templates
 from app.routers.user import router as user_router
 from app.views.predictions.prediction_main_12hr import router as price_router_12hr
 from app.views.predictions.prediction_main_4hr import router as price_router_4hr
@@ -20,6 +28,8 @@ from app.utils.mail_api import mail_router
 # from app.routers.predictions import router as predictions_router
 from datetime import timezone
 from app.database import engine, Base, init_db
+from pathlib import Path
+import os
 
 # Create FastAPI app
 app = FastAPI(
@@ -27,6 +37,12 @@ app = FastAPI(
     description="A simple FastAPI application using MVC pattern",
     version="1.0.0"
 )
+
+BASE_DIR = Path(__file__).resolve().parent
+app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 
 executors = {
     "asyncio": AsyncIOExecutor(),
