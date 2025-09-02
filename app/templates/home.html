@@ -29,9 +29,8 @@
     <!-- Hero Section -->
     <section class="hero">
         <div class="container">
-            <h1>Advanced Crypto Prediction Analytics</h1>
-            <p>BlockSigma provides accurate cryptocurrency price predictions with detailed analytics for both 4-hour and 12-hour trading intervals. Make informed decisions with our advanced prediction algorithms.</p>
-            
+            <h1>Crypto Prediction Analytics</h1>
+            <p>BlockSigma provides cryptocurrency price predictions with detailed analytics for both 4-hour and 12-hour trading intervals. The model-driven insights are shared for added perspective in your trading journey.</p>
             <!-- Disclaimer Section -->
             <div class="disclaimer">
                 <div class="disclaimer-header">
@@ -46,10 +45,10 @@
             </div>
             
             <div class="cta-buttons">
-                <a href="predictions.html" class="btn btn-primary">
+                <a href="{{ url_for('predictions') }}" class="btn btn-primary">
                     <i class="fas fa-chart-line"></i> View Predictions
                 </a>
-                <a href="accuracy.html" class="btn btn-secondary">
+                <a href="{{ url_for('accuracy') }}" class="btn btn-secondary">
                     <i class="fas fa-target"></i> Check Accuracy
                 </a>
             </div>

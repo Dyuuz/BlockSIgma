@@ -44,4 +44,3 @@ except redis.exceptions.ConnectionError as e:
 except Exception as e:
     print(f"❌ Unexpected error connecting to Redis: {e}")
     redis_client = None
-

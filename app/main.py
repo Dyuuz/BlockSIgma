@@ -89,7 +89,7 @@ async def on_startup():
         await conn.run_sync(Base.metadata.create_all)
 
 # Home Route
-@app.get("/", response_class=HTMLResponse)
+@app.get("/", response_class=HTMLResponse, name="home")
 async def landing_page(request: Request):
     return templates.TemplateResponse("home.html", {"request": request, "title": "Welcome to BlockSigma!!"})
 
@@ -107,10 +107,10 @@ async def startup_event():
     await init_db()
 
     print("Database initialization complete.")
-    scheduler.add_job(run_predictions_for_chunk, 'cron', hour='0,12', minute=0, id="job_chunk_12hr", replace_existing=True)
+    # scheduler.add_job(run_predictions_for_chunk, 'cron', hour='0,12', minute=0, id="job_chunk_12hr", replace_existing=True)
     scheduler.add_job(get_current_predictions, 'interval', seconds=30, replace_existing=True)
-    scheduler.add_job(run_4hr_prediction, 'cron', hour='1,2,9,14,17,21', minute=42, id="job_chunk_4hr", replace_existing=True)
-    scheduler.add_job(refresh_4hr_prediction, 'interval', seconds=30, replace_existing=True)
+    # scheduler.add_job(run_4hr_prediction, 'cron', hour='1,2,9,14,17,21', minute=42, id="job_chunk_4hr", replace_existing=True)
+    # scheduler.add_job(refresh_4hr_prediction, 'interval', seconds=30, replace_existing=True)
     # scheduler.add_job(scheduled_signal_update,'interval', seconds=10, id='signal_update_job', replace_existing=True)
     # scheduler.add_job(main, 'interval', seconds=20, id='binance_price', replace_existing=True)
     print("Scheduled jobs:", scheduler.get_jobs(), flush=True)

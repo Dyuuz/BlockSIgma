@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BlockSigma Prediction Dashboard</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <link rel="stylesheet" href="static/CSS/predictions.css">
 </head>
 <body>
@@ -12,7 +13,8 @@
         <header>
             <div class="logo">
                 <i class="fas fa-cube"></i>
-                <span>BlockSigma</span>
+                <span><a href="{{ url_for('home') }}" class="btn btn-primary">BlockSigma</a></span>
+                
             </div>
             <div class="header-controls">
                 <div class="tabs">
@@ -190,6 +192,11 @@
         </div>
     </div>
 
-    <script src="/static/JS/Predictions.js"></script>
+    <!-- <script src="/static/JS/Predictions.js"></script> -->
+    <script>
+        window.fhrPredictions = {{ fhr_pdts | tojson }};
+        window.twlPredictions = {{ twl_hr_pdts | tojson }};
+    </script>
+    <script src="{{ url_for('static', path='/JS/Predictions.js') }}"></script>
 </body>
 </html>

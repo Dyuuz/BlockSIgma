@@ -1,86 +1,19 @@
 // Sample data for demonstration
-const sampleData12hr = [
-    {
-        "asset_name": "1000CAT",
-        "symbol": "1000CAT",
-        "current_price": 0.00762,
-        "price_at_predicted_time": 0.00928,
-        "predicted_price": 0.00924992,
-        "price_difference_currently": -17.888,
-        "price_difference_at_predicted_time": -0.17,
-        "current_status": false,
-        "prediction_status": "Buy - Reached",
-        "predicted_time": "July 23 25, 08:31 AM UTC+00",
-        "expiry_time": "July 23 25, 08:31 PM UTC+00",
-        "achievement": "Reached",
-        "time_reached": "July 23 25, 08:36 AM UTC+00",
-        "dynamic_tp": -0.153,
-        "dynamic_sl": 12.834,
-        "rrr": -0.01,
-        "sl_status": false,
-        "price_change_status": true
-    },
-    {
-        "asset_name": "BTC",
-        "symbol": "BTC",
-        "current_price": 51234.56,
-        "price_at_predicted_time": 52345.67,
-        "predicted_price": 52500.00,
-        "price_difference_currently": -2.1,
-        "price_difference_at_predicted_time": -0.3,
-        "current_status": true,
-        "prediction_status": "Sell - Pending",
-        "predicted_time": "July 24 25, 10:15 AM UTC+00",
-        "expiry_time": "July 24 25, 10:15 PM UTC+00",
-        "achievement": "Not Reached",
-        "time_reached": null,
-        "dynamic_tp": 1.5,
-        "dynamic_sl": 8.2,
-        "rrr": 0.18,
-        "sl_status": false,
-        "price_change_status": true
-    },
-    {
-        "asset_name": "ETH",
-        "symbol": "ETH",
-        "current_price": 2987.65,
-        "price_at_predicted_time": 3100.42,
-        "predicted_price": 3125.00,
-        "price_difference_currently": -4.2,
-        "price_difference_at_predicted_time": -0.8,
-        "current_status": true,
-        "prediction_status": "Buy - Reached",
-        "predicted_time": "July 22 25, 02:45 PM UTC+00",
-        "expiry_time": "July 22 25, 02:45 AM UTC+00",
-        "achievement": "Reached",
-        "time_reached": "July 22 25, 03:10 PM UTC+00",
-        "dynamic_tp": 2.1,
-        "dynamic_sl": 6.7,
-        "rrr": 0.31,
-        "sl_status": false,
-        "price_change_status": true
-    },
-    {
-        "asset_name": "DOGE",
-        "symbol": "DOGE",
-        "current_price": 0.1234,
-        "price_at_predicted_time": 0.1345,
-        "predicted_price": 0.1350,
-        "price_difference_currently": -8.2,
-        "price_difference_at_predicted_time": -0.37,
-        "current_status": false,
-        "prediction_status": "Buy - Pending",
-        "predicted_time": "July 25 25, 09:20 AM UTC+00",
-        "expiry_time": "July 25 25, 09:20 PM UTC+00",
-        "achievement": "Not Reached",
-        "time_reached": null,
-        "dynamic_tp": 1.2,
-        "dynamic_sl": 9.5,
-        "rrr": 0.13,
-        "sl_status": false,
-        "price_change_status": false
-    }
-];
+alert(JSON.stringify(window.twlPredictions));
+let currentData12hr = window.twlPredictions; // declare globally
+
+async function fetchData() {
+  try {
+    const response = await axios.get("/price/latest-predictions");
+    currentData12hr = JSON.stringify(response.data);
+    alert("Data loaded:", currentData12hr);
+  } catch (error) {
+    console.error("Error fetching data:", error);
+  }
+}
+
+// call every 30secs
+setInterval(fetchData, 30000); 
 
 const sampleData4hr = [
     {
@@ -190,7 +123,7 @@ const expiryTimeLabel = document.getElementById('expiryTimeLabel');
 const expiryTimeValue = document.getElementById('expiryTimeValue');
 
 // State variables
-let currentData12hr = [...sampleData12hr];
+// let currentData12hr = [...sampleData12hr];
 let currentData4hr = [...sampleData4hr];
 let currentSortState12hr = {};
 let currentSortState4hr = {};
@@ -344,23 +277,23 @@ function refreshDataNow() {
     // Simulate API call with slight data changes
     setTimeout(() => {
         // Create updated data with slight changes to simulate real-time updates
-        const updatedData12hr = sampleData12hr.map(item => {
-            const randomChange = (Math.random() - 0.5) * 0.1; // -5% to +5%
-            return {
-                ...item,
-                current_price: item.current_price * (1 + randomChange),
-                price_difference_currently: item.price_difference_currently * (1 + randomChange)
-            };
-        });
+        // const updatedData12hr = sampleData12hr.map(item => {
+        //     const randomChange = (Math.random() - 0.5) * 0.1; // -5% to +5%
+        //     return {
+        //         ...item,
+        //         current_price: item.current_price * (1 + randomChange),
+        //         price_difference_currently: item.price_difference_currently * (1 + randomChange)
+        //     };
+        // });
         
-        const updatedData4hr = sampleData4hr.map(item => {
-            const randomChange = (Math.random() - 0.5) * 0.1; // -5% to +5%
-            return {
-                ...item,
-                current_price: item.current_price * (1 + randomChange),
-                price_difference_currently: item.price_difference_currently * (1 + randomChange)
-            };
-        });
+        // const updatedData4hr = sampleData4hr.map(item => {
+        //     const randomChange = (Math.random() - 0.5) * 0.1; // -5% to +5%
+        //     return {
+        //         ...item,
+        //         current_price: item.current_price * (1 + randomChange),
+        //         price_difference_currently: item.price_difference_currently * (1 + randomChange)
+        //     };
+        // });
         
         // Update current data
         currentData12hr = [...updatedData12hr];
@@ -441,7 +374,7 @@ function updateResultsInfo(data, tableType) {
 }
 
 // Format number with commas and fixed decimals
-function formatNumber(num, decimals = 4) {
+function formatNumber(num, decimals = 6) {
     if (num === null || num === undefined) return 'N/A';
     return num.toLocaleString(undefined, {
         minimumFractionDigits: decimals,
