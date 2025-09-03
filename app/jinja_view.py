@@ -25,4 +25,9 @@ async def landing_page(request: Request):
 
 @views_router.get("/accuracy", response_class=HTMLResponse, name="accuracy")
 async def landing_page(request: Request):
-    return templates.TemplateResponse("Accuracy.html", {"request": request, "title": "Welcome to CoinBeacon!"})
+    return templates.TemplateResponse("Accuracy.html",
+        {
+            "request": request,
+            "title": "Welcome to CoinBeacon!"
+        }
+    )
