@@ -1,202 +1,158 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BlockSigma Prediction Dashboard</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-    <link rel="stylesheet" href="static/CSS/predictions.css">
+  <meta charset="utf-8" />
+  <title>BlockSigma</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="{{ url_for('static', path='/CSS/predictions.css') }}">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <div class="logo">
-                <i class="fas fa-cube"></i>
-                <span><a href="{{ url_for('home') }}" class="btn btn-primary">BlockSigma</a></span>
-                
-            </div>
-            <div class="header-controls">
-                <div class="tabs">
-                    <div class="tab active" data-tab="12hr">12hr Predictions</div>
-                    <div class="tab" data-tab="4hr">4hr Predictions</div>
-                </div>
-                <div class="search-container">
-                    <i class="fas fa-search search-icon"></i>
-                    <input type="text" class="search-input" id="searchInput" placeholder="Search crypto...">
-                </div>
-                <button class="help-btn" id="helpBtn">
-                    <i class="fas fa-question"></i>
-                </button>
-            </div>
-        </header>
-        
-        <div class="dashboard-content">
-            <div class="table-header">
-                <div class="results-info">
-                    <span id="resultsInfo">Showing all results</span>
-                    <div class="prediction-times">
-                        <div class="time-info">
-                            <span class="time-label" id="predictionTimeLabel">Prediction Time:</span>
-                            <span class="time-value" id="predictionTimeValue">July 23 25, 08:31 AM UTC+00</span>
-                        </div>
-                        <div class="time-info">
-                            <span class="time-label" id="expiryTimeLabel">Expiry Time:</span>
-                            <span class="time-value" id="expiryTimeValue">July 23 25, 08:31 PM UTC+00</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="table-controls">
-                    <button class="table-btn" id="resetSearch">
-                        <i class="fas fa-times"></i> Clear Search
-                    </button>
-                    <button class="table-btn" id="refreshData">
-                        <i class="fas fa-sync-alt"></i> Refresh Now
-                    </button>
-                    <div class="refresh-info">
-                        <i class="fas fa-sync-alt refresh-icon" id="refreshIcon"></i>
-                        Auto refresh in <span class="refresh-countdown" id="refreshCountdown">30</span>s
-                    </div>
-                </div>
-            </div>
-            
-            <div class="table-container">
-                <div id="table-12hr" class="table-view">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th data-sort="asset_name">Asset <i class="fas fa-sort"></i></th>
-                                <th data-sort="current_price">Current <i class="fas fa-sort"></i></th>
-                                <th data-sort="predicted_price">Predicted <i class="fas fa-sort"></i></th>
-                                <th data-sort="price_difference_currently">Curr Diff <i class="fas fa-sort"></i></th>
-                                <th data-sort="price_difference_at_predicted_time">Pred Diff <i class="fas fa-sort"></i></th>
-                                <th data-sort="prediction_status">Status <i class="fas fa-sort"></i></th>
-                                <th data-sort="predicted_time">Pred Time <i class="fas fa-sort"></i></th>
-                                <th data-sort="expiry_time">Expiry <i class="fas fa-sort"></i></th>
-                                <th data-sort="achievement">Achieved <i class="fas fa-sort"></i></th>
-                                <th data-sort="time_reached">Reached At <i class="fas fa-sort"></i></th>
-                                <th data-sort="dynamic_tp">TP <i class="fas fa-sort"></i></th>
-                                <th data-sort="dynamic_sl">SL <i class="fas fa-sort"></i></th>
-                                <th data-sort="rrr">RRR <i class="fas fa-sort"></i></th>
-                            </tr>
-                        </thead>
-                        <tbody id="data-12hr">
-                            <tr>
-                                <td colspan="13">
-                                    <div class="loading">
-                                        <i class="fas fa-spinner fa-spin"></i>
-                                        Loading 12hr prediction data...
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                
-                <div id="table-4hr" class="table-view" style="display: none;">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th data-sort="asset_name">Asset <i class="fas fa-sort"></i></th>
-                                <th data-sort="current_price">Current <i class="fas fa-sort"></i></th>
-                                <th data-sort="predicted_price">Predicted <i class="fas fa-sort"></i></th>
-                                <th data-sort="price_difference_currently">Curr Diff <i class="fas fa-sort"></i></th>
-                                <th data-sort="price_difference_at_predicted_time">Pred Diff <i class="fas fa-sort"></i></th>
-                                <th data-sort="prediction_status">Status <i class="fas fa-sort"></i></th>
-                                <th data-sort="predicted_time">Pred Time <i class="fas fa-sort"></i></th>
-                                <th data-sort="expiry_time">Expiry <i class="fas fa-sort"></i></th>
-                                <th data-sort="achievement">Achieved <i class="fas fa-sort"></i></th>
-                                <th data-sort="time_reached">Reached At <i class="fas fa-sort"></i></th>
-                                <th data-sort="dynamic_tp">TP <i class="fas fa-sort"></i></th>
-                                <th data-sort="dynamic_sl">SL <i class="fas fa-sort"></i></th>
-                                <th data-sort="rrr">RRR <i class="fas fa-sort"></i></th>
-                            </tr>
-                        </thead>
-                        <tbody id="data-4hr">
-                            <tr>
-                                <td colspan="13">
-                                    <div class="loading">
-                                        <i class="fas fa-spinner fa-spin"></i>
-                                        Loading 4hr prediction data...
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+  <header>
+    <div class="wrap topbar">
+      <div class="brand">
+        <div class="brand-badge"></div>
+        <div>BlockSigma</div>
+      </div>
+      <div class="tabs">
+        <div class="tab active" data-target="panel-12h">12hr Prediction Table</div>
+        <div class="tab" data-target="panel-4h">4hr Prediction Table</div>
+      </div>
+      <div class="right">
+        <div class="search">
+          <span>🔎</span>
+          <input id="searchInput" placeholder="Search crypto (name/symbol)" />
         </div>
+        <select id="tzSelect" class="chip" title="Display times in this timezone"></select>
+        <button id="helpBtn" class="help" title="What do these columns mean?">❓</button>
+      </div>
     </div>
+  </header>
 
-    <!-- Help Modal -->
-    <div class="modal" id="helpModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 class="modal-title"><i class="fas fa-info-circle"></i> Data Field Information</h2>
-                <button class="close-btn">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="help-item">
-                    <div class="help-term">Asset</div>
-                    <div class="help-def">The name and symbol of the cryptocurrency being analyzed.</div>
-                </div>
-                <div class="help-item">
-                    <div class="help-term">Current Price</div>
-                    <div class="help-def">The current market price of the asset at the time of prediction.</div>
-                </div>
-                <div class="help-item">
-                    <div class="help-term">Predicted Price</div>
-                    <div class="help-def">The forecasted price for the asset at the predicted time.</div>
-                </div>
-                <div class="help-item">
-                    <div class="help-term">Current Difference</div>
-                    <div class="help-def">Percentage difference between current price and predicted price.</div>
-                </div>
-                <div class="help-item">
-                    <div class="help-term">Predicted Difference</div>
-                    <div class="help-def">Percentage difference between price at predicted time and predicted price.</div>
-                </div>
-                <div class="help-item">
-                    <div class="help-term">Status</div>
-                    <div class="help-def">Current prediction status (Buy/Sell/No Action and whether target was reached).</div>
-                </div>
-                <div class="help-item">
-                    <div class="help-term">Predicted Time</div>
-                    <div class="help-def">The timestamp when the price prediction is expected to occur.</div>
-                </div>
-                <div class="help-item">
-                    <div class="help-term">Expiry Time</div>
-                    <div class="help-def">The timestamp when the prediction expires.</div>
-                </div>
-                <div class="help-item">
-                    <div class="help-term">Achievement</div>
-                    <div class="help-def">Whether the prediction target has been reached or not.</div>
-                </div>
-                <div class="help-item">
-                    <div class="help-term">Time Reached</div>
-                    <div class="help-def">The timestamp when the prediction target was achieved (if applicable).</div>
-                </div>
-                <div class="help-item">
-                    <div class="help-term">TP (Take Profit)</div>
-                    <div class="help-def">Dynamic take profit level as a percentage.</div>
-                </div>
-                <div class="help-item">
-                    <div class="help-term">SL (Stop Loss)</div>
-                    <div class="help-def">Dynamic stop loss level as a percentage.</div>
-                </div>
-                <div class="help-item">
-                    <div class="help-term">RRR (Risk/Reward Ratio)</div>
-                    <div class="help-def">The ratio between potential profit and potential loss.</div>
-                </div>
-            </div>
+  <main class="wrap">
+    <!-- 12h PANEL -->
+    <section id="panel-12h" class="panel active">
+      <div class="card">
+        <div class="panel-head">
+          <div class="h-row">
+            <div class="title">12hr Prediction Table</div>
+            <div id="times-12h" class="chip">Prediction: — • Expiry: —</div>
+          </div>
+          <div class="h-row">
+            <div class="chip">Refreshing in <span id="count-12h" class="countdown">30s</span></div>
+            <div class="chip">Last updated: <span id="updated-12h">—</span></div>
+          </div>
+          <div id="acc-lines-12h"></div>
         </div>
-    </div>
+        <div class="table-wrap">
+          <table id="table-12h">
+            <thead>
+              <tr>
+                <th class="id-col">#</th>
+                <th class="sortable" data-key="asset_name" data-type="string">Asset <span class="arrow">↕</span></th>
+                <th class="sortable" data-key="symbol" data-type="string">Symbol <span class="arrow">↕</span></th>
+                <th class="sortable right-align" data-key="current_price" data-type="number">Current Price <span class="arrow">↕</span></th>
+                <th class="sortable right-align" data-key="price_at_predicted_time" data-type="number">Price @ Predicted Time <span class="arrow">↕</span></th>
+                <th class="sortable right-align" data-key="predicted_price" data-type="number">Predicted Price <span class="arrow">↕</span></th>
+                <th class="sortable right-align" data-key="price_difference_currently" data-type="number">Δ Now (%) <span class="arrow">↕</span></th>
+                <th class="sortable right-align" data-key="price_difference_at_predicted_time" data-type="number">Δ @ Predicted (%) <span class="arrow">↕</span></th>
+                <th class="sortable" data-key="current_status" data-type="bool">Current Status <span class="arrow">↕</span></th>
+                <th class="sortable" data-key="prediction_status" data-type="string">Prediction Status <span class="arrow">↕</span></th>
+                <th class="sortable" data-key="predicted_time" data-type="time">Predicted Time <span class="arrow">↕</span></th>
+                <th class="sortable" data-key="expiry_time" data-type="time">Expiry Time <span class="arrow">↕</span></th>
+                <th class="sortable" data-key="achievement" data-type="string">Achievement <span class="arrow">↕</span></th>
+                <th class="sortable" data-key="time_reached" data-type="time">Time Reached <span class="arrow">↕</span></th>
+                <th class="sortable right-align" data-key="dynamic_tp" data-type="number">Dynamic TP (%) <span class="arrow">↕</span></th>
+                <th class="sortable right-align" data-key="dynamic_sl" data-type="number">Dynamic SL (%) <span class="arrow">↕</span></th>
+                <th class="sortable right-align" data-key="rrr" data-type="number">RRR <span class="arrow">↕</span></th>
+                <th class="sortable" data-key="sl_status" data-type="bool">SL Status <span class="arrow">↕</span></th>
+                <th class="sortable" data-key="price_change_status" data-type="bool">Price Change Status <span class="arrow">↕</span></th>
+              </tr>
+            </thead>
+            <tbody id="body-12h"><tr><td class="muted" colspan="18">Loading…</td></tr></tbody>
+          </table>
+        </div>
+        <div class="foot">
+          <div>Tip: Click any header to sort. Use the search box above to filter by asset name or symbol.</div>
+        </div>
+      </div>
+    </section>
 
-    <!-- <script src="/static/JS/Predictions.js"></script> -->
-    <script>
-        window.fhrPredictions = {{ fhr_pdts | tojson }};
-        window.twlPredictions = {{ twl_hr_pdts | tojson }};
-    </script>
-    <script src="{{ url_for('static', path='/JS/Predictions.js') }}"></script>
+    <!-- 4h PANEL -->
+    <section id="panel-4h" class="panel">
+      <div class="card">
+        <div class="panel-head">
+          <div class="h-row">
+            <div class="title">4hr Prediction Table</div>
+            <div id="times-4h" class="chip">Prediction: — • Expiry: —</div>
+          </div>
+          <div class="h-row">
+            <div class="chip">Refreshing in <span id="count-4h" class="countdown">30s</span></div>
+            <div class="chip">Last updated: <span id="updated-4h">—</span></div>
+            <div id="acc-lines-4h"></div>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table id="table-4h">
+            <thead>
+              <tr>
+                <th class="id-col">#</th>
+                <th class="sortable" data-key="asset_name" data-type="string">Asset <span class="arrow">↕</span></th>
+                <th class="sortable" data-key="symbol" data-type="string">Symbol <span class="arrow">↕</span></th>
+                <th class="sortable right-align" data-key="current_price" data-type="number">Current Price <span class="arrow">↕</span></th>
+                <th class="sortable right-align" data-key="price_at_predicted_time" data-type="number">Price @ Predicted Time <span class="arrow">↕</span></th>
+                <th class="sortable right-align" data-key="predicted_price" data-type="number">Predicted Price <span class="arrow">↕</span></th>
+                <th class="sortable right-align" data-key="price_difference_currently" data-type="number">Δ Now (%) <span class="arrow">↕</span></th>
+                <th class="sortable right-align" data-key="price_difference_at_predicted_time" data-type="number">Δ @ Predicted (%) <span class="arrow">↕</span></th>
+                <th class="sortable" data-key="current_status" data-type="bool">Current Status <span class="arrow">↕</span></th>
+                <th class="sortable" data-key="prediction_status" data-type="string">Prediction Status <span class="arrow">↕</span></th>
+                <th class="sortable" data-key="interval" data-type="string">Interval <span class="arrow">↕</span></th>
+                <th class="sortable" data-key="predicted_time" data-type="time">Predicted Time <span class="arrow">↕</span></th>
+                <th class="sortable" data-key="expiry_time" data-type="time">Expiry Time <span class="arrow">↕</span></th>
+                <th class="sortable" data-key="achievement" data-type="string">Achievement <span class="arrow">↕</span></th>
+                <th class="sortable" data-key="time_reached" data-type="time">Time Reached <span class="arrow">↕</span></th>
+                <th class="sortable right-align" data-key="dynamic_tp" data-type="number">Dynamic TP (%) <span class="arrow">↕</span></th>
+                <th class="sortable right-align" data-key="dynamic_sl" data-type="number">Dynamic SL (%) <span class="arrow">↕</span></th>
+                <th class="sortable right-align" data-key="rrr" data-type="number">RRR <span class="arrow">↕</span></th>
+                <th class="sortable" data-key="sl_status" data-type="bool">SL Status <span class="arrow">↕</span></th>
+                <th class="sortable" data-key="price_change_status" data-type="bool">Price Change Status <span class="arrow">↕</span></th>
+              </tr>
+            </thead>
+            <tbody id="body-4h"><tr><td class="muted" colspan="19">Loading…</td></tr></tbody>
+          </table>
+        </div>
+        <div class="foot">
+          <div>Tip: Click any header to sort. Use the search box above to filter by asset name or symbol.</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Help Modal -->
+  <div id="modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+    <div class="modal">
+      <header class="wrap topbar" style="padding:12px 14px">
+        <h3 id="helpTitle">What each column means</h3>
+        <button class="close" id="closeModal">Close</button>
+      </header>
+      <div class="content">
+        <div class="kv">
+          <div class="muted">Current Price</div><div>Latest traded price.</div>
+          <div class="muted">Predicted Price</div><div>Model’s target price at the prediction horizon.</div>
+          <div class="muted">Price @ Predicted Time</div><div>Actual price observed at the prediction time (if elapsed).</div>
+          <div class="muted">Δ Now (%)</div><div>Percent change from prediction anchor to the current moment.</div>
+          <div class="muted">Δ @ Predicted (%)</div><div>Percent change measured exactly at the predicted time.</div>
+          <div class="muted">Prediction Status</div><div>High-level signal (e.g., “Buy to Buy - Reached”, “No action”).</div>
+          <div class="muted">Achievement</div><div>Whether the prediction condition was reached.</div>
+          <div class="muted">Dynamic TP / SL</div><div>Real-time trailing take-profit / stop-loss thresholds (%).</div>
+          <div class="muted">RRR</div><div>Risk-Reward Ratio (positive is favorable).</div>
+          <div class="muted">SL Status</div><div>Whether stop-loss is currently triggered.</div>
+          <div class="muted">Price Change Status</div><div>Auxiliary boolean indicating notable price move condition.</div>
+          <div class="muted">Times</div><div>Predicted/Expiry/Reached timestamps in your local timezone.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', path='/JS/Predictions.js') }}"></script>
 </body>
 </html>

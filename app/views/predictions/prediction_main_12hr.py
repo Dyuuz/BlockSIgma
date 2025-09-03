@@ -306,9 +306,6 @@ async def run_predictions_for_chunk():
 
         twelve_hour_job_state = False
         log_memory("After 12hr prediction memory usage")
-        await send_email_via_brevo("priya@dsl.sg","Bangladesh", "12hr", "Priya")
-        await send_email_via_brevo("sam@dsl.sg","Singapore", "12hr", "Sam")
-        await send_email_via_brevo("lekanoyesunle@gmail.com","Nigeria", "12hr","Lekan")
 
         return True
 
@@ -351,6 +348,7 @@ async def save_exit_12hr_summary(session: AsyncSession, update_label="Closure"):
                 desc(TwelveHoursSummary.created_at)).limit(1)
         )
         last_instance = result.scalar_one_or_none()
+        last_instance.number_of_reached = twelve_hrs_summary["number of reached"]
         last_instance.number_of_predictions = twelve_hrs_summary["number of predictions"]
         last_instance.accuracy = twelve_hrs_summary["accuracy"]
         last_instance.details = await fetch_latest_prediction() if update_label == "Closure" else []
@@ -398,6 +396,7 @@ async def save_exit_12hr_buy_summary(session: AsyncSession, update_label="Closur
                 desc(TwelveHoursBuySummary.created_at)).limit(1)
         )
         last_instance = result.scalar_one_or_none()
+        last_instance.number_of_reached = twelve_hrs_buy_summary["number of reached"]
         last_instance.number_of_predictions = twelve_hrs_buy_summary["number of predictions"]
         last_instance.accuracy = twelve_hrs_buy_summary["accuracy"]
         last_instance.details = details if update_label == "Closure" else []
@@ -425,12 +424,14 @@ async def create_12hr_summary(session: AsyncSession, twelve_hrs_summary):
         print(f"Starting to create 12hr summary...")
         from_time = twelve_hrs_summary["from"]
         to_time = twelve_hrs_summary["to"]
+        num_reached = twelve_hrs_summary["number of reached"]
         num_predictions = twelve_hrs_summary["number of predictions"]
         accuracy = twelve_hrs_summary["accuracy"]
 
         summary = TwelveHoursSummary(
             from_=from_time,
             to=to_time,
+            number_of_reached=num_reached,
             number_of_predictions=num_predictions,
             accuracy=accuracy
         )
@@ -459,12 +460,14 @@ async def create_12hr_buy_summary(session: AsyncSession, twelve_hrs_buy_summary)
         print(f"Starting to create 12hr buy summary...")
         from_time = twelve_hrs_buy_summary["from"]
         to_time = twelve_hrs_buy_summary["to"]
+        num_reached = twelve_hrs_buy_summary["number of reached"]
         num_predictions = twelve_hrs_buy_summary["number of predictions"]
         accuracy = twelve_hrs_buy_summary["accuracy"]
 
         summary = TwelveHoursBuySummary(
             from_=from_time,
             to=to_time,
+            number_of_reached=num_reached,
             number_of_predictions=num_predictions,
             accuracy=accuracy
         )
@@ -661,6 +664,7 @@ async def fetch_latest_prediction():
     Returns:
         List[dict]: A list of formatted prediction data dictionaries.
     """
+    from fastapi.responses import JSONResponse
 
     async with AsyncSessionLocal() as session:
         result = await session.execute(select(Prediction))
@@ -690,7 +694,6 @@ async def fetch_latest_prediction():
         predictions.append(item)
 
     return predictions
-
 
 async def fetch_12hrs_summary(db: AsyncSession):
     """
@@ -730,6 +733,7 @@ async def fetch_12hrs_summary(db: AsyncSession):
     return {
         "from": first,
         "to": to,
+        "number of reached": accuracy_len,
         "number of predictions": total_count,
         "accuracy": accuracy_percent
     }
@@ -781,6 +785,7 @@ async def fetch_12hrs_buy_summary(db: AsyncSession):
     return {
         "from": first,
         "to": to,
+        "number of reached": accuracy_len,
         "number of predictions": total_count,
         "accuracy": accuracy_percent
     }
@@ -803,6 +808,7 @@ async def get_12hrs_summary(db: AsyncSession = Depends(get_db)):
     stmt = select(
         TwelveHoursSummary.from_,
         TwelveHoursSummary.to,
+        TwelveHoursSummary.number_of_reached,
         TwelveHoursSummary.number_of_predictions,
         TwelveHoursSummary.accuracy
     ).order_by(desc(TwelveHoursSummary.to))
@@ -816,6 +822,7 @@ async def get_12hrs_summary(db: AsyncSession = Depends(get_db)):
         formatted_rows.append({
             "from": await convert_datetime(row["from_"]),
             "to": await convert_datetime(row["to"]),
+            "number_of_reached": row["number_of_reached"],
             "number_of_predictions": row["number_of_predictions"],
             "accuracy": row["accuracy"]
         })
@@ -840,6 +847,7 @@ async def get_12hrs_buy_summary(db: AsyncSession = Depends(get_db)):
     stmt = select(
         TwelveHoursBuySummary.from_,
         TwelveHoursBuySummary.to,
+        TwelveHoursBuySummary.number_of_reached,
         TwelveHoursBuySummary.number_of_predictions,
         TwelveHoursBuySummary.accuracy
     ).order_by(desc(TwelveHoursBuySummary.to))
@@ -853,6 +861,7 @@ async def get_12hrs_buy_summary(db: AsyncSession = Depends(get_db)):
         formatted_rows.append({
             "from": await convert_datetime(row["from_"]),
             "to": await convert_datetime(row["to"]),
+            "number_of_reached": row["number_of_reached"],
             "number_of_predictions": row["number_of_predictions"],
             "accuracy": row["accuracy"]
         })

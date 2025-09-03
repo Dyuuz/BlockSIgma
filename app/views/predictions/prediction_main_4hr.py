@@ -298,9 +298,6 @@ async def run_predictions_for_chunk():
 
         four_hour_job_state = False
         log_memory("After 4hr prediction memory usage")
-        await send_email_via_brevo("priya@dsl.sg","Bangladesh", "4hr", "Priya")
-        await send_email_via_brevo("sam@dsl.sg","Singapore", "4hr", "Sam")
-        await send_email_via_brevo("lekanoyesunle@gmail.com","Nigeria", "4hr", "Lekan")
 
         return True
 
@@ -341,6 +338,7 @@ async def save_exit_4hr_summary(session: AsyncSession, update_label="Closure"):
             select(FourHoursSummary).order_by(desc(FourHoursSummary.created_at)).limit(1)
         )
         last_instance = result.scalar_one_or_none()
+        last_instance.number_of_reached = four_hrs_summary["number of reached"]
         last_instance.number_of_predictions = four_hrs_summary["number of predictions"]
         last_instance.accuracy = four_hrs_summary["accuracy"]
         last_instance.details = await fetch_latest_prediction() if update_label == "Closure" else []
@@ -385,6 +383,7 @@ async def save_exit_4hr_buy_summary(session: AsyncSession, update_label="Closure
             select(FourHoursBuySummary).order_by(desc(FourHoursBuySummary.created_at)).limit(1)
         )
         last_instance = result.scalar_one_or_none()
+        last_instance.number_of_reached = four_hrs_buy_summary["number of reached"]
         last_instance.number_of_predictions = four_hrs_buy_summary["number of predictions"]
         last_instance.accuracy = four_hrs_buy_summary["accuracy"]
         last_instance.details = details if update_label == "Closure" else []
@@ -413,12 +412,14 @@ async def create_4hr_summary(session: AsyncSession, four_hrs_summary):
         print(f"Starting to create 4hr summary...")
         from_time = four_hrs_summary["from"]
         to_time = four_hrs_summary["to"]
+        num_reached = four_hrs_summary["number of reached"]
         num_predictions = four_hrs_summary["number of predictions"]
         accuracy = four_hrs_summary["accuracy"]
 
         summary = FourHoursSummary(
             from_=from_time,
             to=to_time,
+            number_of_reached=num_reached,
             number_of_predictions=num_predictions,
             accuracy=accuracy
         )
@@ -447,12 +448,14 @@ async def create_4hr_buy_summary(session: AsyncSession, four_hrs_buy_summary):
         print(f"Starting to create 4hr buy summary...")
         from_time = four_hrs_buy_summary["from"]
         to_time = four_hrs_buy_summary["to"]
+        num_reached = four_hrs_buy_summary["number of reached"]
         num_predictions = four_hrs_buy_summary["number of predictions"]
         accuracy = four_hrs_buy_summary["accuracy"]
 
         summary = FourHoursBuySummary(
             from_=from_time,
             to=to_time,
+            number_of_reached=num_reached,
             number_of_predictions=num_predictions,
             accuracy=accuracy
         )
@@ -712,6 +715,7 @@ async def fetch_4hrs_summary(db: AsyncSession):
     return {
         "from": first,
         "to": to,
+        "number of reached": accuracy_len,
         "number of predictions": total_count,
         "accuracy": accuracy_percent
     }
@@ -761,6 +765,7 @@ async def fetch_4hrs_buy_summary(db: AsyncSession):
     return {
         "from": first,
         "to": to,
+        "number of reached": accuracy_len,
         "number of predictions": total_count,
         "accuracy": accuracy_percent
     }
@@ -784,6 +789,7 @@ async def get_4hrs_summary(db: AsyncSession = Depends(get_db)):
     stmt = select(
         FourHoursSummary.from_,
         FourHoursSummary.to,
+        FourHoursSummary.number_of_reached,
         FourHoursSummary.number_of_predictions,
         FourHoursSummary.accuracy
     ).order_by(desc(FourHoursSummary.to))
@@ -797,6 +803,7 @@ async def get_4hrs_summary(db: AsyncSession = Depends(get_db)):
         formatted_rows.append({
             "from": await convert_datetime(row["from_"]),
             "to": await convert_datetime(row["to"]),
+            "number_of_reached": row["number_of_reached"],
             "number_of_predictions": row["number_of_predictions"],
             "accuracy": row["accuracy"]
         })
@@ -822,6 +829,7 @@ async def get_4hrs_buy_summary(db: AsyncSession = Depends(get_db)):
     stmt = select(
         FourHoursBuySummary.from_,
         FourHoursBuySummary.to,
+        FourHoursBuySummary.number_of_reached,
         FourHoursBuySummary.number_of_predictions,
         FourHoursBuySummary.accuracy
     ).order_by(desc(FourHoursBuySummary.to))
@@ -835,6 +843,7 @@ async def get_4hrs_buy_summary(db: AsyncSession = Depends(get_db)):
         formatted_rows.append({
             "from": await convert_datetime(row["from_"]),
             "to": await convert_datetime(row["to"]),
+            "number_of_reached": row["number_of_reached"],
             "number_of_predictions": row["number_of_predictions"],
             "accuracy": row["accuracy"]
         })

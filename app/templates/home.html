@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BlockSigma - Crypto Prediction Analytics</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="static/CSS/home.css">
+    <link rel="stylesheet" href="{{ url_for('static', path='/CSS/home.css') }}">
 </head>
 <body>
     <!-- Header -->
@@ -65,21 +65,21 @@
                         <i class="fas fa-clock"></i>
                     </div>
                     <h3>Dual Timeframe Predictions</h3>
-                    <p>Get accurate price predictions for both 4-hour and 12-hour trading intervals to match your trading strategy.</p>
+                    <p>Get crytpo price predictions for both 4-hour and 12-hour trading intervals to match your trading strategy.</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">
                         <i class="fas fa-bolt"></i>
                     </div>
                     <h3>Real-time Updates</h3>
-                    <p>Our system refreshes every 30 seconds with the latest market data to provide you with up-to-date predictions.</p>
+                    <p>Our system refreshes every 30 seconds with the latest market data to provide you with up-to-date insights.</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">
                         <i class="fas fa-sliders-h"></i>
                     </div>
                     <h3>Advanced Analytics</h3>
-                    <p>Detailed metrics including price differences, take profit levels, stop loss points, and risk/reward ratios.</p>
+                    <p>Detailed metrics including price differences, predicition status, take profit levels, stop loss points, risk/reward ratios etc.</p>
                 </div>
             </div>
         </div>
@@ -93,17 +93,17 @@
                 <div class="step">
                     <div class="step-number">1</div>
                     <h3>Data Collection</h3>
-                    <p>We gather real-time market data from multiple cryptocurrency exchanges and analyze price movements.</p>
+                    <p>The pipeline ingests live quotes and ~475 hours of 30m/1hr OHLCV data from Binance, then computes core indicators (RSI, MACD). Symbols are enriched with human-readable names from CoinGecko, and data is cleaned/typed for modeling.</p>
                 </div>
                 <div class="step">
                     <div class="step-number">2</div>
                     <h3>Prediction Analysis</h3>
-                    <p>Our advanced algorithms process the data to generate accurate price predictions for different timeframes.</p>
+                    <p>Close prices are scaled and fed into a compact LSTM (10-step lookback, 50 units, 10 epochs) to forecast the next close. The prediction is compared to the current market price to label signals (Buy/No action) and derive percent gaps, dynamic take-profit/stop-loss thresholds, and risk-reward ratio.</p>
                 </div>
                 <div class="step">
                     <div class="step-number">3</div>
                     <h3>Results Delivery</h3>
-                    <p>View detailed predictions with achievement status, time reached, and performance metrics.</p>
+                    <p>For each asset, our system provides a JSON record containing prices, deltas, statuses, and metrics, plus static UTC timestamps for when the prediction was made and when it expires (now + 4h/12hr). The function returns an array ready to store or serve to your dashboard.</p>
                 </div>
             </div>
         </div>
@@ -115,10 +115,10 @@
             <div class="footer-content">
                 <div class="footer-logo">BlockSigma</div>
                 <div class="footer-links">
-                    <a href="predictions.html">Predictions</a>
-                    <a href="accuracy.html">Accuracy</a>
+                    <a href="{{ url_for('predictions') }}">Predictions</a>
+                    <a href="{{ url_for('accuracy') }}">Accuracy</a>
+                    <a href="#">Explore</a>
                     <a href="#">About</a>
-                    <a href="#">Contact</a>
                 </div>
                 <p class="copyright">© 2023 BlockSigma. All rights reserved.</p>
                 <p class="copyright"><em>BlockSigma provides predictive analytics, not financial advice. Cryptocurrency investments carry risk.</em></p>

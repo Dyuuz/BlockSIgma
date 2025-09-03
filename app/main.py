@@ -52,7 +52,7 @@ executors = {
 }
 
 job_defaults = {
-    'max_instances': 1,
+    'max_instances': 3,
     'coalesce': True,
     'executor':"asyncio",
     'misfire_grace_time': 60
@@ -108,8 +108,8 @@ async def startup_event():
 
     print("Database initialization complete.")
     # scheduler.add_job(run_predictions_for_chunk, 'cron', hour='0,12', minute=0, id="job_chunk_12hr", replace_existing=True)
-    scheduler.add_job(get_current_predictions, 'interval', seconds=30, replace_existing=True)
-    # scheduler.add_job(run_4hr_prediction, 'cron', hour='1,2,9,14,17,21', minute=42, id="job_chunk_4hr", replace_existing=True)
+    # scheduler.add_job(get_current_predictions, 'interval', seconds=30, replace_existing=True)
+    scheduler.add_job(run_4hr_prediction, 'cron', hour='1,5,9,11,17,21', minute=6, id="job_chunk_4hr", replace_existing=True)
     # scheduler.add_job(refresh_4hr_prediction, 'interval', seconds=30, replace_existing=True)
     # scheduler.add_job(scheduled_signal_update,'interval', seconds=10, id='signal_update_job', replace_existing=True)
     # scheduler.add_job(main, 'interval', seconds=20, id='binance_price', replace_existing=True)

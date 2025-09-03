@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>BlockSigma — Summaries</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="{{ url_for('static', path='/CSS/accuracy.css') }}">
+</head>
+<body>
+  <header>
+    <div class="wrap topbar">
+      <div class="brand"><div class="brand-badge"></div><div>BlockSigma</div></div>
+      <div class="tabs">
+        <div class="tab active" data-target="panel-12hs">12hrs Summary Table</div>
+        <div class="tab" data-target="panel-12hb">12hrs Buy Summary Table</div>
+        <div class="tab" data-target="panel-4hs">4hrs Summary Table</div>
+        <div class="tab" data-target="panel-4hb">4hrs Buy Summary Table</div>
+        <select id="tzSelect" class="chip" title="Display times in this timezone"></select>
+        <div class="right">
+            <button id="helpBtn" class="help" title="What do these tables show?">❓</button>
+        </div>
+      </div>
+      
+    </div>
+  </header>
+
+  <main class="wrap">
+    <!-- 12hrs Summary -->
+    <section id="panel-12hs" class="panel active">
+      <div class="card">
+        <div class="panel-head">
+          <div class="h-row">
+            <div class="title">12hrs Summary Table</div>
+            <div id="window-12hs" class="chip">Latest window: —</div>
+          </div>
+          <div class="h-row">
+            <div class="chip">Refreshing in <span id="count-12hs" class="countdown">30s</span></div>
+            <div class="chip">Last updated: <span id="updated-12hs">—</span></div>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>From</th>
+                <th>To</th>
+                <th>Number of Reached</th>
+                <th class="right-align">Number of Predictions</th>
+                <th class="right-align">Accuracy</th>
+              </tr>
+            </thead>
+            <tbody id="body-12hs"><tr><td class="muted" colspan="4">Loading…</td></tr></tbody>
+          </table>
+        </div>
+        <div class="foot">
+          <div id="range-12hs">—</div>
+          <div class="pagination">
+            <label>Rows/page</label>
+            <select id="ps-12hs" class="rows-select">
+              <option>5</option><option selected>10</option><option>25</option><option>50</option>
+            </select>
+            <button class="pager-btn" id="prev-12hs">Prev</button>
+            <span id="page-12hs">1 / 1</span>
+            <button class="pager-btn" id="next-12hs">Next</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 12hrs Buy Summary -->
+    <section id="panel-12hb" class="panel">
+      <div class="card">
+        <div class="panel-head">
+          <div class="h-row">
+            <div class="title">12hrs Buy Summary Table</div>
+            <div id="window-12hb" class="chip">Latest window: —</div>
+          </div>
+          <div class="h-row">
+            <div class="chip">Refreshing in <span id="count-12hb" class="countdown">30s</span></div>
+            <div class="chip">Last updated: <span id="updated-12hb">—</span></div>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>From</th>
+                <th>To</th>
+                <th>Number of Reached</th>
+                <th class="right-align">Number of Predictions</th>
+                <th class="right-align">Accuracy</th>
+              </tr>
+            </thead>
+            <tbody id="body-12hb"><tr><td class="muted" colspan="4">Loading…</td></tr></tbody>
+          </table>
+        </div>
+        <div class="foot">
+          <div id="range-12hb">—</div>
+          <div class="pagination">
+            <label>Rows/page</label>
+            <select id="ps-12hb" class="rows-select">
+              <option>5</option><option selected>10</option><option>25</option><option>50</option>
+            </select>
+            <button class="pager-btn" id="prev-12hb">Prev</button>
+            <span id="page-12hb">1 / 1</span>
+            <button class="pager-btn" id="next-12hb">Next</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4hrs Summary -->
+    <section id="panel-4hs" class="panel">
+      <div class="card">
+        <div class="panel-head">
+          <div class="h-row">
+            <div class="title">4hrs Summary Table</div>
+            <div id="window-4hs" class="chip">Latest window: —</div>
+          </div>
+          <div class="h-row">
+            <div class="chip">Refreshing in <span id="count-4hs" class="countdown">30s</span></div>
+            <div class="chip">Last updated: <span id="updated-4hs">—</span></div>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>From</th>
+                <th>To</th>
+                <th>Number of Reached</th>
+                <th class="right-align">Number of Predictions</th>
+                <th class="right-align">Accuracy</th>
+              </tr>
+            </thead>
+            <tbody id="body-4hs"><tr><td class="muted" colspan="4">Loading…</td></tr></tbody>
+          </table>
+        </div>
+        <div class="foot">
+          <div id="range-4hs">—</div>
+          <div class="pagination">
+            <label>Rows/page</label>
+            <select id="ps-4hs" class="rows-select">
+              <option>5</option><option selected>10</option><option>25</option><option>50</option>
+            </select>
+            <button class="pager-btn" id="prev-4hs">Prev</button>
+            <span id="page-4hs">1 / 1</span>
+            <button class="pager-btn" id="next-4hs">Next</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4hrs Buy Summary -->
+    <section id="panel-4hb" class="panel">
+      <div class="card">
+        <div class="panel-head">
+          <div class="h-row">
+            <div class="title">4hrs Buy Summary Table</div>
+            <div id="window-4hb" class="chip">Latest window: —</div>
+          </div>
+          <div class="h-row">
+            <div class="chip">Refreshing in <span id="count-4hb" class="countdown">30s</span></div>
+            <div class="chip">Last updated: <span id="updated-4hb">—</span></div>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>From</th>
+                <th>To</th>
+                <th>Number of Reached</th>
+                <th class="right-align">Number of Predictions</th>
+                <th class="right-align">Accuracy</th>
+              </tr>
+            </thead>
+            <tbody id="body-4hb"><tr><td class="muted" colspan="4">Loading…</td></tr></tbody>
+          </table>
+        </div>
+        <div class="foot">
+          <div id="range-4hb">—</div>
+          <div class="pagination">
+            <label>Rows/page</label>
+            <select id="ps-4hb" class="rows-select">
+              <option>5</option><option selected>10</option><option>25</option><option>50</option>
+            </select>
+            <button class="pager-btn" id="prev-4hb">Prev</button>
+            <span id="page-4hb">1 / 1</span>
+            <button class="pager-btn" id="next-4hb">Next</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Help Modal -->
+    <div id="modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+    <div class="modal">
+        <header class="wrap" style="padding:12px 16px">
+        <h3 id="helpTitle">About the Summary Tables</h3>
+        <button class="close" id="closeModal">Close</button>
+        </header>
+        <div class="content">
+        <div class="kv">
+            <div class="muted">From</div><div>Start of the evaluation window (UTC).</div>
+            <div class="muted">To</div><div>End of the evaluation window (UTC).</div>
+            <div class="muted">Number of Predictions</div><div>Total predictions evaluated within the window.</div>
+            <div class="muted">Accuracy</div><div>Percent of predictions that were correct for that window.</div>
+            <div class="muted">12hrs / 4hrs Summary</div><div>Includes all signals in the interval.</div>
+            <div class="muted">12hrs / 4hrs Buy Summary</div><div>Subset that includes only “Buy” signals.</div>
+            <div class="muted">Auto-refresh</div><div>Each table refreshes every 30s with its own countdown.</div>
+            <div class="muted">Pagination</div><div>Use Prev/Next and Rows per page to navigate entries.</div>
+        </div>
+        </div>
+    </div>
+    </div>
+
+  <script src="{{ url_for('static', path='/JS/Accuracy.js') }}"></script>
+</body>
+</html>
