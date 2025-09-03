@@ -136,18 +136,20 @@
       </header>
       <div class="content">
         <div class="kv">
-          <div class="muted">Current Price</div><div>Latest traded price.</div>
-          <div class="muted">Predicted Price</div><div>Model’s target price at the prediction horizon.</div>
-          <div class="muted">Price @ Predicted Time</div><div>Actual price observed at the prediction time (if elapsed).</div>
-          <div class="muted">Δ Now (%)</div><div>Percent change from prediction anchor to the current moment.</div>
-          <div class="muted">Δ @ Predicted (%)</div><div>Percent change measured exactly at the predicted time.</div>
-          <div class="muted">Prediction Status</div><div>High-level signal (e.g., “Buy to Buy - Reached”, “No action”).</div>
-          <div class="muted">Achievement</div><div>Whether the prediction condition was reached.</div>
-          <div class="muted">Dynamic TP / SL</div><div>Real-time trailing take-profit / stop-loss thresholds (%).</div>
-          <div class="muted">RRR</div><div>Risk-Reward Ratio (positive is favorable).</div>
-          <div class="muted">SL Status</div><div>Whether stop-loss is currently triggered.</div>
-          <div class="muted">Price Change Status</div><div>Auxiliary boolean indicating notable price move condition.</div>
-          <div class="muted">Times</div><div>Predicted/Expiry/Reached timestamps in your local timezone.</div>
+          <div class="muted">Current Price</div><div>Live market price.</div>
+          <div class="muted">Predicted Price</div><div>Expected market value at prediction timeframe.</div>
+          <div class="muted">Price @ Predicted Time</div><div>Actual price observed at the prediction time.</div>
+          <div class="muted">Δ Now (%)</div><div>Shows whether the coin has gained or lost value since the forecast point.</div>
+          <div class="muted">Δ @ Predicted (%)</div><div>Shows how far the prediction is from the current price, in %.</div>
+          <div class="muted">Prediction Status</div><div>Shows whether the forecast suggests a Buy opportunity.</div>
+          <div class="muted">Achievement</div><div>Indicates whether the prediction has successfully played out.</div>
+          <div class="muted">Dynamic TP</div><div>An adaptive profit target slightly below predicted price for safer exits.</div>
+          <div class="muted">Dynamic SL</div><div>An auto-adjusting stop loss tied to volatility and prediction distance.</div>
+          <div class="muted">RRR</div><div>A higher RRR means better trade efficiency; lower RRR means higher risk exposure.</div>
+          <div class="muted">SL Status</div><div>Helps track if stop-loss protection is strengthening over time.</div>
+          <div class="muted">Price Change Status</div><div>Shows if the price is higher than the last recorded price.</div>
+          <div class="muted">Predicted Time</div><div>The timestamp when the system generated the forecast.</div>
+          <div class="muted">Expiry Time</div><div>The cutoff point when the prediction is no longer valid.</div>
         </div>
       </div>
     </div>
