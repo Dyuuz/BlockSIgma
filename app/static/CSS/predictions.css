@@ -84,6 +84,11 @@ tbody tr.reached{background:var(--reached-bg)}
 .right-align{text-align:right}
 .foot{display:flex; justify-content:space-between; align-items:center; color:var(--muted); font-size:12px; padding-top:8px}
 
+.bool{ display:flex; align-items:center; justify-content:center; font-weight:700; }
+.bool.up{   color:#059669; } /* emerald-600 */
+.bool.down{ color:#dc2626; } /* red-600   */
+
+
 /* Modal */
 /* ===== Modern, glassy Help Modal (drop-in CSS) ===== */
 

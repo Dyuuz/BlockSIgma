@@ -40,33 +40,34 @@
           <div class="h-row">
             <div class="chip">Refreshing in <span id="count-12h" class="countdown">30s</span></div>
             <div class="chip">Last updated: <span id="updated-12h">—</span></div>
+            <div id="acc-lines-12h"></div>
           </div>
-          <div id="acc-lines-12h"></div>
         </div>
         <div class="table-wrap">
           <table id="table-12h">
             <thead>
-              <tr>
-                <th class="id-col">#</th>
-                <th class="sortable" data-key="asset_name" data-type="string">Asset <span class="arrow">↕</span></th>
-                <th class="sortable" data-key="symbol" data-type="string">Symbol <span class="arrow">↕</span></th>
-                <th class="sortable right-align" data-key="current_price" data-type="number">Current Price <span class="arrow">↕</span></th>
-                <th class="sortable right-align" data-key="price_at_predicted_time" data-type="number">Price @ Predicted Time <span class="arrow">↕</span></th>
-                <th class="sortable right-align" data-key="predicted_price" data-type="number">Predicted Price <span class="arrow">↕</span></th>
-                <th class="sortable right-align" data-key="price_difference_currently" data-type="number">Δ Now (%) <span class="arrow">↕</span></th>
-                <th class="sortable right-align" data-key="price_difference_at_predicted_time" data-type="number">Δ @ Predicted (%) <span class="arrow">↕</span></th>
-                <th class="sortable" data-key="current_status" data-type="bool">Current Status <span class="arrow">↕</span></th>
-                <th class="sortable" data-key="prediction_status" data-type="string">Prediction Status <span class="arrow">↕</span></th>
-                <th class="sortable" data-key="predicted_time" data-type="time">Predicted Time <span class="arrow">↕</span></th>
-                <th class="sortable" data-key="expiry_time" data-type="time">Expiry Time <span class="arrow">↕</span></th>
-                <th class="sortable" data-key="achievement" data-type="string">Achievement <span class="arrow">↕</span></th>
-                <th class="sortable" data-key="time_reached" data-type="time">Time Reached <span class="arrow">↕</span></th>
-                <th class="sortable right-align" data-key="dynamic_tp" data-type="number">Dynamic TP (%) <span class="arrow">↕</span></th>
-                <th class="sortable right-align" data-key="dynamic_sl" data-type="number">Dynamic SL (%) <span class="arrow">↕</span></th>
-                <th class="sortable right-align" data-key="rrr" data-type="number">RRR <span class="arrow">↕</span></th>
-                <th class="sortable" data-key="sl_status" data-type="bool">SL Status <span class="arrow">↕</span></th>
-                <th class="sortable" data-key="price_change_status" data-type="bool">Price Change Status <span class="arrow">↕</span></th>
-              </tr>
+                <tr>
+                    <th class="id-col">#</th>
+                    <th class="sortable" data-key="asset_name" data-type="string">Asset <span class="arrow">↕</span></th>
+                    <th class="sortable" data-key="symbol" data-type="string">Symbol <span class="arrow">↕</span></th>
+                    <th class="sortable right-align" data-key="current_price" data-type="number">Current Price <span class="arrow">↕</span></th>
+                    <th class="sortable right-align" data-key="price_at_predicted_time" data-type="number">Price @ Predicted Time <span class="arrow">↕</span></th>
+                    <th class="sortable right-align" data-key="predicted_price" data-type="number">Predicted Price <span class="arrow">↕</span></th>
+                    <th class="sortable right-align" data-key="price_difference_currently" data-type="number">Δ Now (%) <span class="arrow">↕</span></th>
+                    <th class="sortable right-align" data-key="price_difference_at_predicted_time" data-type="number">Δ @ Predicted (%) <span class="arrow">↕</span></th>
+                    <th class="sortable" data-key="current_status" data-type="bool">Current Status <span class="arrow">↕</span></th>
+                    <th class="sortable" data-key="prediction_status" data-type="string">Prediction Status <span class="arrow">↕</span></th>
+                    <th class="sortable" data-key="achievement" data-type="string">Achievement <span class="arrow">↕</span></th>
+                    <th class="sortable" data-key="time_reached" data-type="time">Time Reached <span class="arrow">↕</span></th>
+                    <th class="sortable right-align" data-key="dynamic_tp" data-type="number">Dynamic TP (%) <span class="arrow">↕</span></th>
+                    <th class="sortable right-align" data-key="dynamic_sl" data-type="number">Dynamic SL (%) <span class="arrow">↕</span></th>
+                    <th class="sortable right-align" data-key="rrr" data-type="number">RRR <span class="arrow">↕</span></th>
+                    <th class="sortable" data-key="sl_status" data-type="bool">SL Status <span class="arrow">↕</span></th>
+                    <th class="sortable" data-key="price_change_status" data-type="bool">Price Status <span class="arrow">↕</span></th>
+                    <!-- LAST TWO -->
+                    <th class="sortable" data-key="predicted_time" data-type="time">Predicted Time <span class="arrow">↕</span></th>
+                    <th class="sortable" data-key="expiry_time" data-type="time">Expiry Time <span class="arrow">↕</span></th>
+                </tr>
             </thead>
             <tbody id="body-12h"><tr><td class="muted" colspan="18">Loading…</td></tr></tbody>
           </table>
@@ -94,28 +95,29 @@
         <div class="table-wrap">
           <table id="table-4h">
             <thead>
-              <tr>
-                <th class="id-col">#</th>
-                <th class="sortable" data-key="asset_name" data-type="string">Asset <span class="arrow">↕</span></th>
-                <th class="sortable" data-key="symbol" data-type="string">Symbol <span class="arrow">↕</span></th>
-                <th class="sortable right-align" data-key="current_price" data-type="number">Current Price <span class="arrow">↕</span></th>
-                <th class="sortable right-align" data-key="price_at_predicted_time" data-type="number">Price @ Predicted Time <span class="arrow">↕</span></th>
-                <th class="sortable right-align" data-key="predicted_price" data-type="number">Predicted Price <span class="arrow">↕</span></th>
-                <th class="sortable right-align" data-key="price_difference_currently" data-type="number">Δ Now (%) <span class="arrow">↕</span></th>
-                <th class="sortable right-align" data-key="price_difference_at_predicted_time" data-type="number">Δ @ Predicted (%) <span class="arrow">↕</span></th>
-                <th class="sortable" data-key="current_status" data-type="bool">Current Status <span class="arrow">↕</span></th>
-                <th class="sortable" data-key="prediction_status" data-type="string">Prediction Status <span class="arrow">↕</span></th>
-                <th class="sortable" data-key="interval" data-type="string">Interval <span class="arrow">↕</span></th>
-                <th class="sortable" data-key="predicted_time" data-type="time">Predicted Time <span class="arrow">↕</span></th>
-                <th class="sortable" data-key="expiry_time" data-type="time">Expiry Time <span class="arrow">↕</span></th>
-                <th class="sortable" data-key="achievement" data-type="string">Achievement <span class="arrow">↕</span></th>
-                <th class="sortable" data-key="time_reached" data-type="time">Time Reached <span class="arrow">↕</span></th>
-                <th class="sortable right-align" data-key="dynamic_tp" data-type="number">Dynamic TP (%) <span class="arrow">↕</span></th>
-                <th class="sortable right-align" data-key="dynamic_sl" data-type="number">Dynamic SL (%) <span class="arrow">↕</span></th>
-                <th class="sortable right-align" data-key="rrr" data-type="number">RRR <span class="arrow">↕</span></th>
-                <th class="sortable" data-key="sl_status" data-type="bool">SL Status <span class="arrow">↕</span></th>
-                <th class="sortable" data-key="price_change_status" data-type="bool">Price Change Status <span class="arrow">↕</span></th>
-              </tr>
+                <tr>
+                    <th class="id-col">#</th>
+                    <th class="sortable" data-key="asset_name" data-type="string">Asset <span class="arrow">↕</span></th>
+                    <th class="sortable" data-key="symbol" data-type="string">Symbol <span class="arrow">↕</span></th>
+                    <th class="sortable right-align" data-key="current_price" data-type="number">Current Price <span class="arrow">↕</span></th>
+                    <th class="sortable right-align" data-key="price_at_predicted_time" data-type="number">Price @ Predicted Time <span class="arrow">↕</span></th>
+                    <th class="sortable right-align" data-key="predicted_price" data-type="number">Predicted Price <span class="arrow">↕</span></th>
+                    <th class="sortable right-align" data-key="price_difference_currently" data-type="number">Δ Now (%) <span class="arrow">↕</span></th>
+                    <th class="sortable right-align" data-key="price_difference_at_predicted_time" data-type="number">Δ @ Predicted (%) <span class="arrow">↕</span></th>
+                    <th class="sortable" data-key="current_status" data-type="bool">Current Status <span class="arrow">↕</span></th>
+                    <th class="sortable" data-key="prediction_status" data-type="string">Prediction Status <span class="arrow">↕</span></th>
+                    <!-- removed: <th data-key="interval"> -->
+                    <th class="sortable" data-key="achievement" data-type="string">Achievement <span class="arrow">↕</span></th>
+                    <th class="sortable" data-key="time_reached" data-type="time">Time Reached <span class="arrow">↕</span></th>
+                    <th class="sortable right-align" data-key="dynamic_tp" data-type="number">Dynamic TP (%) <span class="arrow">↕</span></th>
+                    <th class="sortable right-align" data-key="dynamic_sl" data-type="number">Dynamic SL (%) <span class="arrow">↕</span></th>
+                    <th class="sortable right-align" data-key="rrr" data-type="number">RRR <span class="arrow">↕</span></th>
+                    <th class="sortable" data-key="sl_status" data-type="bool">SL Status <span class="arrow">↕</span></th>
+                    <th class="sortable" data-key="price_change_status" data-type="bool">Price Status<span class="arrow">↕</span></th>
+                    <!-- LAST TWO -->
+                    <th class="sortable" data-key="predicted_time" data-type="time">Predicted Time <span class="arrow">↕</span></th>
+                    <th class="sortable" data-key="expiry_time" data-type="time">Expiry Time <span class="arrow">↕</span></th>
+                </tr>
             </thead>
             <tbody id="body-4h"><tr><td class="muted" colspan="19">Loading…</td></tr></tbody>
           </table>
@@ -140,14 +142,14 @@
           <div class="muted">Predicted Price</div><div>Expected market value at prediction timeframe.</div>
           <div class="muted">Price @ Predicted Time</div><div>Actual price observed at the prediction time.</div>
           <div class="muted">Δ Now (%)</div><div>Shows whether the coin has gained or lost value since the forecast point.</div>
-          <div class="muted">Δ @ Predicted (%)</div><div>Shows how far the prediction is from the current price, in %.</div>
+          <div class="muted">Δ @ Predicted (%)</div><div>Shows how far the prediction is from the asset price at the predicted time.</div>
           <div class="muted">Prediction Status</div><div>Shows whether the forecast suggests a Buy opportunity.</div>
           <div class="muted">Achievement</div><div>Indicates whether the prediction has successfully played out.</div>
           <div class="muted">Dynamic TP</div><div>An adaptive profit target slightly below predicted price for safer exits.</div>
           <div class="muted">Dynamic SL</div><div>An auto-adjusting stop loss tied to volatility and prediction distance.</div>
           <div class="muted">RRR</div><div>A higher RRR means better trade efficiency; lower RRR means higher risk exposure.</div>
           <div class="muted">SL Status</div><div>Helps track if stop-loss protection is strengthening over time.</div>
-          <div class="muted">Price Change Status</div><div>Shows if the price is higher than the last recorded price.</div>
+          <div class="muted">Price Status</div><div>Shows if the price is higher than the last recorded price.</div>
           <div class="muted">Predicted Time</div><div>The timestamp when the system generated the forecast.</div>
           <div class="muted">Expiry Time</div><div>The cutoff point when the prediction is no longer valid.</div>
         </div>

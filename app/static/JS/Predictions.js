@@ -46,10 +46,12 @@ function safe(v){ return (v===null||v===undefined) ? "—" : String(v).replace(/
 const fmtNum = (v, d=4) => (isFinite(v) ? Number(v).toLocaleString(undefined,{minimumFractionDigits:d, maximumFractionDigits:d}) : "—");
 const fmtPct = (v, d=2) => (isFinite(v) ? Number(v).toFixed(d) + "%" : "—");
 const polarityClass = (n)=> (isFinite(n) ? (n<0?"negative":(n>0?"positive":"")) : "");
+
 const fmtBool = (b) => {
   const yes = !!b;
-  const dot = `<span class="dot ${yes ? "green":"red"}"></span>`;
-  return `<span class="bool">${dot}${yes ? "Yes":"No"}</span>`;
+  const icon = yes ? "▲" : "▼";          // or "↑"/"↓" if you prefer
+  const cls  = yes ? "up" : "down";
+  return `<span class="bool ${cls}" title="${yes ? "True" : "False"}" aria-label="${yes ? "True" : "False"}">${icon}</span>`;
 };
 
 // --- Parse API UTC strings like: "July 22 25, 09:19 AM UTC+00"
@@ -247,14 +249,12 @@ function render(scope){
     return;
   }
 
-  const is4h = scope === "4h";
-
   const html = rows.map((item, idx) => {
     // Prefer backend-provided id-like fields; fallback to display index (1-based)
     const displayId = item.id ?? item._id ?? item.asset_id ?? item.rank ?? (idx + 1);
 
-    const base = [
-      `<td class="id-col">${safe(displayId)}</td>`, // <-- NEW FIRST COLUMN
+    const cells = [
+      `<td class="id-col">${safe(displayId)}</td>`,
       `<td><strong>${safe(item.asset_name)}</strong><div class="muted">${safe(item.symbol)}</div></td>`,
       `<td>${safe(item.symbol)}</td>`,
       `<td class="right-align">$${fmtNum(item.current_price, 6)}</td>`,
@@ -264,11 +264,7 @@ function render(scope){
       `<td class="right-align"><span class="value-change ${polarityClass(item.price_difference_at_predicted_time)}">${fmtPct(item.price_difference_at_predicted_time)}</span></td>`,
       `<td>${fmtBool(item.current_status)}</td>`,
       `<td>${safe(item.prediction_status)}</td>`,
-    ];
-    if (is4h) base.push(`<td>${safe(item.interval || "4hr")}</td>`);
-    base.push(
-      `<td>${fmtTime(item.predicted_time)}</td>`,
-      `<td>${fmtTime(item.expiry_time)}</td>`,
+      // (NO interval cell)
       `<td>${safe(item.achievement)}</td>`,
       `<td>${fmtTime(item.time_reached)}</td>`,
       `<td class="right-align"><span class="${polarityClass(item.dynamic_tp)}">${fmtPct(item.dynamic_tp)}</span></td>`,
@@ -276,7 +272,10 @@ function render(scope){
       `<td class="right-align"><span class="${polarityClass(item.rrr)}">${fmtNum(item.rrr, 2)}</span></td>`,
       `<td>${fmtBool(item.sl_status)}</td>`,
       `<td>${fmtBool(item.price_change_status)}</td>`,
-    );
+      // LAST TWO: Predicted & Expiry
+      `<td>${fmtTime(item.predicted_time)}</td>`,
+      `<td>${fmtTime(item.expiry_time)}</td>`,
+    ];
 
     const status = String(item.prediction_status ?? '')
       .trim()
@@ -284,12 +283,13 @@ function render(scope){
       .replace(/\s*[-–—]\s*/g, ' - ');
     const trClass = (status === 'buy - reached') ? 'reached' : '';
 
-    return `<tr class="${trClass}">${base.join("")}</tr>`;
+    return `<tr class="${trClass}">${cells.join("")}</tr>`;
   }).join("");
 
   tbody.innerHTML = html;
   setTimesBadge(scope);
 }
+
 
 
 // ---------- Sorting ----------
