@@ -21,9 +21,7 @@ class SymbolCreate(SymbolBase):
 class SymbolRead(SymbolBase):
     id: int
     created_at: datetime
-
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)  # was class Config: orm_mode=True
 
 
 # ─── Prediction Schemas for 12hr ────────────────────────────────────────────────────────
@@ -57,12 +55,10 @@ class PredictionCreate(PredictionBase_12hr):
     pass
 
 
-class PredictionRead(PredictionBase_12hr):
+class PredictionRead12hr(PredictionBase_12hr):
     id: int
     created_at: datetime
-
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)  # was class Config: orm_mode=True
 
 
 # ─── Prediction Schemas for 4hr────────────────────────────────────────────────────────
@@ -97,12 +93,10 @@ class PredictionCreate(PredictionBase_4hr):
     pass
 
 
-class PredictionRead(PredictionBase_4hr):
+class PredictionRead4hr(PredictionBase_4hr):
     id: int
     created_at: datetime
-
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)  # was class Config: orm_mode=True
 
 
 # ─── User Schemas ──────────────────────────────────────────────────────────────
@@ -118,9 +112,7 @@ class UserCreate(UserBase):
 
 class UserRead(UserBase):
     id: int
-
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 # ─── BaseSummary Schemas ──────────────────────────────────────────────────────────────
 
@@ -130,9 +122,7 @@ class BaseSummaryCreate(BaseModel):
     number_of_predictions: int
     accuracy: int
     details: Optional[List[Dict[str, Any]]] = None
-
-    class Config:
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)  # replaces allow_population_by_field_name
 
 class TwelveHoursSummaryCreate(BaseSummaryCreate):
     pass

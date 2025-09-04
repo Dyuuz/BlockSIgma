@@ -1,3 +1,5 @@
+import os
+os.getenv("TF_CPP_MIN_LOG_LEVEL")  # 1=WARNING, 2=ERROR, 3=FATAL
 try:
     import tensorflow as tf
 except Exception:
@@ -20,7 +22,6 @@ from datetime import datetime, timezone, timedelta
 import requests
 import random
 from binance.exceptions import BinanceAPIException
-import os
 import re
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import LSTM, Dense, Input

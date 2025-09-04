@@ -1,4 +1,5 @@
 import os
+os.getenv("TF_CPP_MIN_LOG_LEVEL")  # 1=WARNING, 2=ERROR, 3=FATAL
 import re
 import time
 import random

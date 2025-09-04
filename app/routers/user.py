@@ -6,7 +6,7 @@ from app.database import get_db
 from app.models.models import User
 from app.schema.model_schema import (
     UserBase,UserCreate,UserRead,
-    PredictionBase_12hr,PredictionCreate,PredictionRead,
+    PredictionBase_12hr,PredictionCreate,
     SymbolBase,SymbolCreate,SymbolRead
 )
 
