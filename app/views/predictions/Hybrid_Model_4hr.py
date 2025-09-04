@@ -1,9 +1,16 @@
+try:
+    import tensorflow as tf
+except Exception:
+    tf = None
+
+import gc
 import httpx
 from app.schema.model_schema import PredictionCreate
 import pandas as pd
 import numpy as np
 from ta.momentum import RSIIndicator
 from ta.trend import MACD
+from app.utils.mem_logger import log_memory
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import MinMaxScaler
@@ -15,8 +22,9 @@ import random
 from binance.exceptions import BinanceAPIException
 import os
 import re
-from tensorflow.keras.models import Sequential
+from tensorflow.keras.models import Model
 from tensorflow.keras.layers import LSTM, Dense, Input
+from tensorflow.keras import backend as K
 import time
 import asyncio
 
@@ -24,7 +32,42 @@ api_key = os.getenv("BINANCE_API_KEY")
 api_secret = os.getenv("BINANCE_API_SECRET")
 client = Client(api_key, api_secret)
 
+# LSTM model: single reusable graph
+TIMESTEPS = 10
+FEATURES = 1
 
+def _build_reusable_model():
+    """Build once; reuse for every symbol (weights reinitialized each run)."""
+    if tf is None:
+        return None, None
+
+    x = Input(shape=(TIMESTEPS, FEATURES))
+    h = LSTM(50)(x)
+    y = Dense(1)(h)
+    m = Model(x, y)
+    m.compile(optimizer="adam", loss="mean_squared_error")
+
+    # Predict fn with fixed signature to avoid retracing
+    @tf.function(input_signature=[tf.TensorSpec(shape=[None, TIMESTEPS, FEATURES], dtype=tf.float32)])
+    def _predict_fn(x_in):
+        return m(x_in, training=False)
+
+    return m, _predict_fn
+
+GLOBAL_MODEL, _PREDICT_FN = _build_reusable_model()
+
+def reinit_model_weights(model: Model):
+    """Fast weight reset without rebuilding graphs."""
+    if model is None:
+        return
+    for w in model.weights:
+        init = getattr(w, "initializer", None)
+        if init is not None:
+            init_fn = tf.keras.initializers.get(init)
+            w.assign(init_fn(w.shape, dtype=w.dtype))
+
+
+# Utilities
 def fetch_symbol_name_map() -> dict[str, str]:
     """
     Fetches a mapping of SYMBOL → Coin Name from CoinGecko.
@@ -32,8 +75,7 @@ def fetch_symbol_name_map() -> dict[str, str]:
     """
     url = "https://api.coingecko.com/api/v3/coins/list"
     try:
-        # async with httpx.AsyncClient(timeout=10.0) as client:
-        response = requests.get(url)
+        response = requests.get(url, timeout=20)
         response.raise_for_status()
         coins = response.json()
         return {coin["symbol"].upper(): coin["name"] for coin in coins}
@@ -41,133 +83,17 @@ def fetch_symbol_name_map() -> dict[str, str]:
         print(f"[✖] Failed to fetch CoinGecko symbol map: {e}")
         return {}
 
-
-def main_model(asset_chunk_type, symbols, symbol_to_name):
+def _normalize_to_usdt_pair(symbol: str) -> tuple[str, str]:
     """
-    Runs price prediction for a given chunk of asset symbols using LSTM.
-
-    - Fetches recent price data and calculates technical indicators.
-    - Trains an LSTM model to predict future prices for each symbol.
-    - Compares predicted price to current market price to determine prediction and status.
-    - Builds and returns a list of prediction dictionaries for database storage.
-
-    Used to generate 12-hour predictions for asset chunks in a scheduled and batched process.
+    Accepts 'BTC' or 'BTCUSDT' and returns ('BTC', 'BTCUSDT').
+    Prevents 'BTCUSDTUSDT' mistakes.
     """
-    print(f"Fetching Binance data... for {asset_chunk_type}")
-
-    now = datetime.now()
-    print(f"Starting 4hr Prediction at.... {now}")
-
-    predicted_prices = []
-
-    url = "https://api.binance.com/api/v3/ticker/24hr"
-    resp = requests.get(url)
-    resp.raise_for_status()
-    tickers = resp.json()
-
-    price_map = {item['symbol']: item['lastPrice'] for item in tickers}
-
-    symbol_names = fetch_symbol_name_map()
-    for symbol in symbols:
-        try:
-            asset_name = re.sub(r"\s*USDT$", "", symbol, flags=re.IGNORECASE)
-            asset_alt_names = symbol_to_name.get(
-                asset_name) or symbol_names.get(asset_name) or asset_name
-            quote = "USDT"
-            df = fetch_binance_ohlcv(symbol=symbol+quote)
-            df = add_indicators(df)
-
-            # Scale close prices for LSTM
-            scaler = MinMaxScaler()
-            close_scaled = scaler.fit_transform(df[['close']].values)
-
-            lstm_model, X_lstm, y_lstm = train_lstm_model_scaled(close_scaled)
-            lstm_pred_scaled = lstm_model.predict(X_lstm[-1].reshape(1, 10, 1))
-            lstm_pred_real = scaler.inverse_transform(
-                [[lstm_pred_scaled.flatten()[0]]])[0][0]
-            predicted_price = float(round(lstm_pred_real, 8))
-
-            # Get Symbol Price
-            current_price = float(price_map.get(symbol+quote))
-            if current_price is None:
-                print(f"⚠️ No price found for {symbol}")
-                continue
-
-            current_price = round(current_price, 8)
-            price_change_status = True if current_price > predicted_price else False
-
-            # percentage difference for price_difference_currently & price_difference_at_predicted_time
-            price_difference_currently = ((current_price - current_price) / current_price) * 100
-            price_difference_currently = round(price_difference_currently, 3)
-
-            price_difference_when_predicted = ((predicted_price - current_price) / current_price) * 100
-            price_difference_when_predicted = round(price_difference_when_predicted, 3)
-
-            # relative difference (as a percentage of the predicted price)
-            current_stat = ((current_price - predicted_price) / predicted_price) * 100
-            current_stat = round(current_stat, 2)
-
-            if current_stat >= 1.2:
-                current_status = True
-            else:
-                current_status = False
-
-            # relative difference (as a percentage of the predicted price)
-            prediction_stat = ((predicted_price -current_price) / current_price) * 100
-            prediction_stat = round(prediction_stat, 2)
-
-            if prediction_stat >= 1.2:
-                prediction_status = "Buy"
-            else:
-                prediction_status = "No action"
-
-            achievement = "Not Reached"
-
-            adjustment_factor = float(0.6)
-            dynamic_tp = float(price_difference_when_predicted) * 0.90
-            dynamic_sl = ((predicted_price - current_price) / current_price) * adjustment_factor * 100
-            rrr = dynamic_tp / dynamic_sl if dynamic_sl != 0 else 0
-            
-            now =  datetime.now(timezone.utc)
-            expiry = now + timedelta(hours=4)
-            
-            data = {
-                "asset_name": f"{asset_alt_names}",
-                "symbol": f"{asset_name}",
-                "current_price": round(current_price, 8),
-                "price_change_status": price_change_status,
-                "price_at_predicted_time": round(current_price, 8),
-                "predicted_price": round(predicted_price, 8),
-                "price_difference_currently": round(price_difference_currently, 3),
-                "price_difference_at_predicted_time": round(price_difference_when_predicted, 3),
-                "current_status": current_status,
-                "prediction_status": prediction_status,
-                "predicted_time": now,
-                "expiry_time": expiry,
-                "achievement": achievement,
-                "time_reached": None,
-                "interval": '4hr',
-                "dynamic_tp":  round(dynamic_tp, 3),
-                "dynamic_sl": round(dynamic_sl, 3),
-                "rrr": round(rrr, 2),
-                "sl_status": None,
-            }
-            print(f"4hr Prediction: {data}")
-
-            predicted_prices.append(data)
-
-        except Exception as e:
-            print(f"Error with {symbol}: {e}")
-
-        # time.sleep(2)
-
-    end = datetime.now()
-    print(f"Ending 4hr Prediction at.... {end}")
-    print(f"prices length for 4hr Prediction.... {len(predicted_prices)}")
-
-    return predicted_prices
+    base = re.sub(r"USDT$", "", symbol, flags=re.IGNORECASE)
+    pair = base + "USDT"
+    return base, pair
 
 
+# Data fetching / features
 def fetch_binance_ohlcv(symbol, interval='30m', lookback='475 hours ago UTC', retries=3, sleep_sec=1):
     print(f"Fetching OHLCV for {symbol}...")
 
@@ -180,8 +106,7 @@ def fetch_binance_ohlcv(symbol, interval='30m', lookback='475 hours ago UTC', re
 
     for attempt in range(retries):
         try:
-            kline_data = client.get_historical_klines(
-                symbol, interval, lookback)
+            kline_data = client.get_historical_klines(symbol, interval, lookback)
             break
         except BinanceAPIException as e:
             print(f"[{symbol}] Attempt {attempt+1}: BinanceAPIException - {e}")
@@ -192,18 +117,14 @@ def fetch_binance_ohlcv(symbol, interval='30m', lookback='475 hours ago UTC', re
         print(f"[{symbol}] Failed to fetch after {retries} retries.")
         return pd.DataFrame(columns=columns_needed)
 
-    # If no data returned
     if not kline_data:
         return pd.DataFrame(columns=columns_needed)
 
-    # Build DataFrame
     df = pd.DataFrame(kline_data, columns=columns)[columns_needed]
-
-    # Convert timestamp to datetime and set as index
     df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
     df.set_index('timestamp', inplace=True)
 
-    # Convert to lower precision to reduce memory
+    # compact dtypes
     df = df.astype({
         'open': 'float32',
         'high': 'float32',
@@ -211,42 +132,62 @@ def fetch_binance_ohlcv(symbol, interval='30m', lookback='475 hours ago UTC', re
         'close': 'float32',
         'volume': 'float32'
     })
-
     return df
 
-
-def add_indicators(df):
-    df['close'] = df['close'].astype(float)
-    df['rsi'] = RSIIndicator(close=df['close']).rsi()
+def add_indicators(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+    df['close'] = df['close'].astype('float32')
+    df['rsi'] = RSIIndicator(close=df['close']).rsi().astype('float32')
     macd = MACD(close=df['close'])
-    df['macd'] = macd.macd()
-    df['macd_signal'] = macd.macd_signal()
+    df['macd'] = macd.macd().astype('float32')
+    df['macd_signal'] = macd.macd_signal().astype('float32')
     df.dropna(inplace=True)
     return df
 
-
-def create_lstm_dataset_scaled(data, look_back=10):
+def create_lstm_dataset_scaled(data: np.ndarray, look_back=TIMESTEPS):
     X, y = [], []
     for i in range(len(data) - look_back - 1):
         X.append(data[i:(i + look_back), 0])
         y.append(data[i + look_back, 0])
-    return np.array(X), np.array(y)
+    X = np.array(X, dtype=np.float32)
+    y = np.array(y, dtype=np.float32)
+    return X, y
 
 
-def train_lstm_model_scaled(scaled_series):
-    X, y = create_lstm_dataset_scaled(scaled_series, look_back=10)
-    X = X.reshape((X.shape[0], X.shape[1], 1))
-    model = Sequential()
-    model.add(Input(shape=(X.shape[1], 1)))  # Clean input declaration
-    model.add(LSTM(50))
-    model.add(Dense(1))
-    model.compile(loss='mean_squared_error', optimizer='adam')
-    model.fit(X, y, epochs=10, batch_size=32, verbose=0)
-    return model, X, y
+def train_lstm_model_scaled_REUSE(scaled_series: np.ndarray) -> float:
+    """
+    Reuses GLOBAL_MODEL. Resets weights, fits briefly, predicts last step.
+    Returns a **scaled** prediction (still in [0,1] scaling).
+    """
+    if GLOBAL_MODEL is None:
+        raise RuntimeError("TensorFlow is not available in this environment.")
+
+    # Build dataset with *fixed* shapes and dtypes
+    X, y = create_lstm_dataset_scaled(scaled_series, look_back=TIMESTEPS)
+    
+    if X.shape[0] < 2:
+        # not enough history: fallback to last observed scaled value
+        return float(X[-1, -1]) if X.size else float(scaled_series[-1, 0])
+
+    X = X.reshape((X.shape[0], TIMESTEPS, FEATURES)).astype('float32')
+    y = y.astype('float32')
+
+    # Reset only weights (keep single graph & compiled functions)
+    reinit_model_weights(GLOBAL_MODEL)
+
+    # Fit quickly; keep epochs small to reduce time/memory
+    GLOBAL_MODEL.fit(X, y, epochs=10, batch_size=32, verbose=0)
+
+    # Predict last window with a stable signature (prevents retracing)
+    x_last = tf.convert_to_tensor(X[-1:])  # shape (1, 10, 1)
+    yhat = _PREDICT_FN(x_last)  # tf.Tensor
+    return float(yhat.numpy().ravel()[0])
 
 
+# XGBoost (unchanged)
 def train_xgboost(df):
     features = ['rsi', 'macd', 'macd_signal']
+    df = df.copy()
     df['future_close'] = df['close'].shift(-1)
     df.dropna(inplace=True)
     X = df[features]
@@ -260,5 +201,150 @@ def train_xgboost(df):
     return model
 
 
+# Main job (reuses single model)
+def main_model(asset_chunk_type, symbols, symbol_to_name):
+    """
+    Runs price prediction for a given chunk of asset symbols using a single
+    reusable LSTM model (no per-symbol graph rebuilds).
+    """
+    print(f"Fetching Binance data... for {asset_chunk_type}")
+
+    start = datetime.now()
+    print(f"Starting 4hr Prediction at.... {start}")
+
+    predicted_prices = []
+
+    # Preload current prices (map like {'BTCUSDT': '12345.67', ...})
+    url = "https://api.binance.com/api/v3/ticker/24hr"
+    resp = requests.get(url, timeout=20)
+    resp.raise_for_status()
+    tickers = resp.json()
+    price_map = {item['symbol']: item['lastPrice'] for item in tickers}
+
+    symbol_names_global = fetch_symbol_name_map()
+
+    for user_symbol in symbols:
+        log_memory("4hr Current memory usage on model training")
+
+        # declare refs so they're always defined
+        df = scaler = close_scaled = None
+        try:
+            base, pair = _normalize_to_usdt_pair(user_symbol)
+
+            # asset display name
+            asset_alt_names = (
+                symbol_to_name.get(base) or
+                symbol_names_global.get(base) or
+                base
+            )
+
+            # Fetch data & indicators
+            df = fetch_binance_ohlcv(symbol=pair)
+            if df.empty:
+                print(f"⚠️ No OHLCV for {pair}")
+                continue
+            df = add_indicators(df)
+
+            # Scale close prices (float32 to reduce memory)
+            scaler = MinMaxScaler()
+            close_scaled = scaler.fit_transform(df[['close']].values.astype('float32'))
+
+            # --- Reuse single model for training & prediction ---
+            lstm_pred_scaled_val = train_lstm_model_scaled_REUSE(close_scaled)
+
+            # inverse scale
+            lstm_pred_real = scaler.inverse_transform([[lstm_pred_scaled_val]])[0][0]
+            predicted_price = float(round(lstm_pred_real, 8))
+
+            # Get current price
+            cp_str = price_map.get(pair)
+            if cp_str is None:
+                print(f"⚠️ No price found for {pair}")
+                continue
+            current_price = round(float(cp_str), 8)
+
+            price_change_status = current_price > predicted_price
+
+            # percentage difference for price_difference_currently & price_difference_at_predicted_time
+            price_difference_currently = 0.0  # (cur - cur)/cur → 0
+            price_difference_when_predicted = ((predicted_price - current_price) / current_price) * 100 if current_price else 0.0
+            price_difference_when_predicted = round(price_difference_when_predicted, 3)
+
+            # relative difference (%) of current vs predicted
+            current_stat = ((current_price - predicted_price) / predicted_price) * 100 if predicted_price else 0.0
+            current_stat = round(current_stat, 2)
+            current_status = current_stat >= 1.2
+
+            # relative difference (%) of prediction vs current
+            prediction_stat = ((predicted_price - current_price) / current_price) * 100 if current_price else 0.0
+            prediction_stat = round(prediction_stat, 2)
+            prediction_status = "Buy" if prediction_stat >= 1.2 else "No action"
+
+            achievement = "Not Reached"
+
+            adjustment_factor = float(0.6)
+            dynamic_tp = price_difference_when_predicted * 0.90
+            dynamic_sl = ((predicted_price - current_price) / current_price) * adjustment_factor * 100 if current_price else 0.0
+            rrr = dynamic_tp / dynamic_sl if dynamic_sl else 0
+
+            now_utc = datetime.now(timezone.utc)
+            expiry = now_utc + timedelta(hours=4)
+
+            data = {
+                "asset_name": f"{asset_alt_names}",
+                "symbol": f"{base}",
+                "current_price": round(current_price, 8),
+                "price_change_status": price_change_status,
+                "price_at_predicted_time": round(current_price, 8),
+                "predicted_price": round(predicted_price, 8),
+                "price_difference_currently": round(price_difference_currently, 3),
+                "price_difference_at_predicted_time": round(price_difference_when_predicted, 3),
+                "current_status": current_status,
+                "prediction_status": prediction_status,
+                "predicted_time": now_utc,
+                "expiry_time": expiry,
+                "achievement": achievement,
+                "time_reached": None,
+                "interval": '4hr',
+                "dynamic_tp": round(dynamic_tp, 3),
+                "dynamic_sl": round(dynamic_sl, 3),
+                "rrr": round(rrr, 2),
+                "sl_status": None,
+            }
+            print(f"4hr Prediction: {data}")
+
+            predicted_prices.append(data)
+
+        except Exception as e:
+            print(f"Error with {user_symbol}: {e}")
+
+        finally:
+            df = None
+            scaler = None
+            close_scaled = None
+
+            # No clear_session() here — we reuse the single model/graph.
+
+            log_memory(f"4hr Current memory usage at the end of {user_symbol} model training")
+
+
+    end = datetime.now()
+    print(f"Ending 4hr Prediction at.... {end}")
+    print(f"prices length for 4hr Prediction.... {len(predicted_prices)}")
+
+    # NOTE:
+    # - K.clear_session() was not called here so the single model
+    #   stays warm across invocations in the same process.
+    # - Clear TF only once per job (keeps process RSS stable within job; releases at end)
+    try:
+        if tf is not None:
+            K.clear_session()
+    finally:
+        gc.collect()
+
+    return predicted_prices
+
+
+# __main__ (local test)
 if __name__ == "__main__":
-    print(main_model('Asset Chunk 1', ["BTCUSDT", "ETHUSDT"]))
+    print(main_model('Asset Chunk 1', ["BTCUSDT", "ETHUSDT"], symbol_to_name={}))
