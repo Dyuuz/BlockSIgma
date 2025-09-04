@@ -241,11 +241,8 @@ async def run_predictions_for_chunk():
                         se_12hr = await save_exit_12hr_summary(db)
                         se_12hr_buy = await save_exit_12hr_buy_summary(db)
 
-                    if se_12hr is None or se_12hr_buy is None:
+                    if (se_12hr is not True) or (se_12hr_buy is not True):
                         print("12hr Summary table is still empty!")
-                    else:
-                        print(
-                            "[✔] Successfully saved twelve hours(+buy) summary table")
 
                     try:
                         stmt = insert(Prediction).values(filtered_result)
@@ -329,7 +326,7 @@ async def save_exit_12hr_summary(session: AsyncSession, update_label="Closure"):
 
     """
     try:
-        print(f"Starting to save the last 12hr summary...")
+        # print(f"Starting to save the last 12hr summary...")
         twelve_hrs_summary = await fetch_12hrs_summary(session)
         from_time = twelve_hrs_summary["from"]
         from_time_check = await session.execute(
@@ -355,7 +352,8 @@ async def save_exit_12hr_summary(session: AsyncSession, update_label="Closure"):
 
         await session.commit()
         await session.refresh(last_instance)
-        return
+        print(f"[✔] 12hr summary table updated.")
+        return True
 
     except Exception as e:
         print(f"[✖] Failed to save 12hr summary: {e}")
@@ -373,7 +371,7 @@ async def save_exit_12hr_buy_summary(session: AsyncSession, update_label="Closur
 
     """
     try:
-        print(f"Starting to save the last 12hr buy summary...")
+        # print(f"Starting to save the last 12hr buy summary...")
         twelve_hrs_buy_summary = await fetch_12hrs_buy_summary(session)
         from_time = twelve_hrs_buy_summary["from"]
         from_time_check = await session.execute(
@@ -403,7 +401,8 @@ async def save_exit_12hr_buy_summary(session: AsyncSession, update_label="Closur
 
         await session.commit()
         await session.refresh(last_instance)
-        return
+        print(f"[✔] 12hr(buy) summary table updated.")
+        return True
 
     except Exception as e:
         print(f"[✖] Failed to save 12hr buy summary: {e}")
@@ -615,7 +614,6 @@ async def get_current_predictions() -> List[str]:
             await save_exit_12hr_summary(db, update_label="Patch")
             await save_exit_12hr_buy_summary(db, update_label="Patch")
 
-        print(f"[✔] 12hr(buy) summary table updated.")
         log_memory("12hr Current memory usage on refresh")
 
     except Exception as e:
