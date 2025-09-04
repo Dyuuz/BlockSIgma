@@ -498,6 +498,7 @@ async def get_current_predictions() -> List[str]:
         return
     
     print(f"Starting to update 12hr latest prices...")
+    print(datetime.now())
     all_prices = {}
 
     async with AsyncSessionLocal() as session:
