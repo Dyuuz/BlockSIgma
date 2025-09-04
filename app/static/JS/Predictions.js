@@ -358,8 +358,7 @@ async function fetchAndRender(scope, url){
 
     render(scope);
     state[scope].lastUpdated = new Date();
-    const updatedEl = document.getElementById(`updated-${scope}`);
-    if (updatedEl) updatedEl.textContent = state[scope].lastUpdated.toLocaleTimeString();
+    updateLastUpdated(scope);
   } catch (err){
     console.error(`Failed to fetch ${scope}:`, err);
     showError(scope, err);
@@ -452,6 +451,8 @@ function populateTimezones() {
     // re-render times immediately (no refetch)
     render("12h");
     render("4h");
+    updateLastUpdated("12h");
+    updateLastUpdated("4h");
   });
 }
 
@@ -494,3 +495,26 @@ window.addEventListener('DOMContentLoaded', () => {
   startCountdown("12h", ENDPOINT_12H);
   startCountdown("4h", ENDPOINT_4H);
 });
+
+// time-only, using selected DISPLAY_TZ (e.g., "Africa/Lagos")
+function fmtTimeOnlyTZ(date) {
+  if (!date) return "—";
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      timeZone: DISPLAY_TZ,
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true
+    }).format(date);
+  } catch {
+    // fallback
+    return date.toLocaleTimeString();
+  }
+}
+
+function updateLastUpdated(scope) {
+  const el = document.getElementById(`updated-${scope}`);
+  if (el) el.textContent = fmtTimeOnlyTZ(state[scope].lastUpdated);
+}
+
