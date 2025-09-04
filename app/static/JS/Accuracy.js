@@ -13,10 +13,10 @@ const REFRESH_SECONDS = 30;
 
 // ---- App state per panel ----
 const state = {
-  "12hs": { data: [], page: 1, pageSize: 10, fetching: false, lastUpdated: null, countdown: REFRESH_SECONDS, timer: null },
-  "12hb": { data: [], page: 1, pageSize: 10, fetching: false, lastUpdated: null, countdown: REFRESH_SECONDS, timer: null },
-  "4hs":  { data: [], page: 1, pageSize: 10, fetching: false, lastUpdated: null, countdown: REFRESH_SECONDS, timer: null },
-  "4hb":  { data: [], page: 1, pageSize: 10, fetching: false, lastUpdated: null, countdown: REFRESH_SECONDS, timer: null },
+    "12hs": { data: [], page: 1, pageSize: 10, fetching: false, pendingRefresh: false, lastUpdated: null, countdown: REFRESH_SECONDS, timer: null },
+    "12hb": { data: [], page: 1, pageSize: 10, fetching: false, pendingRefresh: false, lastUpdated: null, countdown: REFRESH_SECONDS, timer: null },
+    "4hs":  { data: [], page: 1, pageSize: 10, fetching: false, pendingRefresh: false, lastUpdated: null, countdown: REFRESH_SECONDS, timer: null },
+    "4hb":  { data: [], page: 1, pageSize: 10, fetching: false, pendingRefresh: false, lastUpdated: null, countdown: REFRESH_SECONDS, timer: null },
 };
 
 // ---- Timezone handling ----
@@ -209,7 +209,7 @@ function renderPanel(scope){
   // last updated
   const updatedEl = document.getElementById(`updated-${scope}`);
   if (updatedEl && state[scope].lastUpdated) {
-    updatedEl.textContent = state[scope].lastUpdated.toLocaleTimeString();
+    updateLastUpdated(scope);
   }
 
   // countdown
@@ -325,3 +325,23 @@ window.addEventListener("DOMContentLoaded", ()=>{
     startCountdown(scope);
   });
 });
+
+function fmtTimeOnlyTZ(dateObj) {
+  if (!dateObj) return "—";
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      timeZone: DISPLAY_TZ,
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true
+    }).format(dateObj);
+  } catch {
+    return dateObj.toLocaleTimeString();
+  }
+}
+
+function updateLastUpdated(scope) {
+  const el = document.getElementById(`updated-${scope}`);
+  if (el) el.textContent = fmtTimeOnlyTZ(state[scope].lastUpdated);
+}
