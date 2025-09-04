@@ -310,7 +310,7 @@ async def run_predictions_for_chunk():
         print(f"[✖] Error in run_predictions_for_chunk: {e}")
 
     finally:
-        # gc.collect()
+        gc.collect()
         logger.info("Session cleared.")
         log_memory("After 12hr prediction memory usage cleared.")
 
@@ -613,7 +613,8 @@ async def get_current_predictions() -> List[str]:
         async for db in get_db():
             await save_exit_12hr_summary(db, update_label="Patch")
             await save_exit_12hr_buy_summary(db, update_label="Patch")
-
+        
+        gc.collect() 
         log_memory("12hr Current memory usage on refresh")
 
     except Exception as e:
