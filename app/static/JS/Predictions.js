@@ -354,9 +354,28 @@ async function fetchAndRender(scope, url){
     state[scope].data = list;
 
     const q = document.getElementById("searchInput")?.value || "";
-    if (q) applySearch(q); else state[scope].filtered = [];
+    if (q) {
+      const ql = q.toLowerCase();
+      state[scope].filtered = state[scope].data.filter(it =>
+        String(it.asset_name||"").toLowerCase().includes(ql) ||
+        String(it.symbol||"").toLowerCase().includes(ql)
+      );
+    } else {
+      state[scope].filtered = [];
+    }
+
+    // ✅ keep current sort across refreshes
+    applyCurrentSort(scope);
+
+    // ✅ CAPTURE scrollTop from the .table-wrap around this table
+    const scroller = document.querySelector(`#table-${scope}`)?.closest('.table-wrap');
+    const y = scroller?.scrollTop ?? 0;
 
     render(scope);
+
+    // ✅ RESTORE scrollTop
+    if (scroller) scroller.scrollTop = y;
+
     state[scope].lastUpdated = new Date();
     updateLastUpdated(scope);
   } catch (err){
@@ -366,6 +385,7 @@ async function fetchAndRender(scope, url){
     state[scope].fetching = false;
   }
 }
+
 
 function showError(scope, err) {
   const tbody = document.getElementById(`body-${scope}`);
@@ -518,3 +538,30 @@ function updateLastUpdated(scope) {
   if (el) el.textContent = fmtTimeOnlyTZ(state[scope].lastUpdated);
 }
 
+function applyCurrentSort(scope){
+  const key = state[scope].sortKey;
+  const dir = state[scope].sortDir;
+  const type = document
+    .querySelector(`#table-${scope} th[data-key="${key}"]`)
+    ?.getAttribute("data-type") || "string";
+
+  const arr = state[scope].filtered.length ? state[scope].filtered : state[scope].data;
+
+  const val = (o)=> {
+    const v = o[key];
+    if (type==="time"){
+      const d = parseApiUtc(v);
+      return d ? d.getTime() : -Infinity;
+    }
+    if (type==="bool"){ return !!v ? 1 : 0; }
+    if (type==="number"){ const n = Number(v); return isFinite(n) ? n : -Infinity; }
+    return (v ?? "").toString().toLowerCase();
+  };
+
+  arr.sort((a,b)=>{
+    const A = val(a), B = val(b);
+    if (A<B) return dir==="asc" ? -1 : 1;
+    if (A>B) return dir==="asc" ? 1 : -1;
+    return 0;
+  });
+}
