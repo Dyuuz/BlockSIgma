@@ -152,11 +152,11 @@ function setWindowChip(scope){
   if (!chip) return;
   const list = state[scope].data;
   if (!Array.isArray(list) || list.length === 0) {
-    chip.textContent = "Latest window: —";
+    chip.textContent = "Ongoing session: —";
     return;
   }
   const first = list[0];
-  chip.textContent = `Latest window: ${fmtTimeTZ(first.from)} → ${fmtTimeTZ(first.to)}`;
+  chip.textContent = `Ongoing session: ${fmtTimeTZ(first.from)} → ${fmtTimeTZ(first.to)}`;
 }
 
 function renderPanel(scope){
@@ -234,7 +234,7 @@ async function fetchAndRender(scope){
     const tbody = document.getElementById(`body-${scope}`);
     if (tbody) tbody.innerHTML = `<tr><td class="muted" colspan="5">Error loading data</td></tr>`;
     const chip = document.getElementById(`window-${scope}`);
-    if (chip) chip.textContent = "Latest window: —";
+    if (chip) chip.textContent = "Ongoing session: —";
   } finally {
     state[scope].fetching = false;
   }
