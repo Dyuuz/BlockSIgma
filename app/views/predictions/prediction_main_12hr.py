@@ -578,7 +578,7 @@ async def get_current_predictions() -> List[str]:
                 diff = ((current - price_at_predicted_time) /
                         price_at_predicted_time) * 100
                 status = current > previous_current_price
-                stat = ((current - predicted) / predicted) * 100
+                stat = ((current - price_at_predicted_time) / price_at_predicted_time) * 100
 
                 dynamic_tp = float(item["dynamic_tp"])
                 dynamic_sl =((predicted - current) / current) * adjustment_factor * 100
