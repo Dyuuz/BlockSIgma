@@ -68,7 +68,7 @@ def get_filtered_assetchunk_status(asset_list):
     """
     client = Client(api_key, api_secret)
     exchange_info = client.get_exchange_info()
-    print("Starting to filter assets with active trading status from asset_list")
+    # print("Starting to filter assets with active trading status from asset_list")
 
     active_spot_symbols = [symbol['symbol']
                            for symbol in exchange_info['symbols'] if symbol['status'] == 'TRADING']
@@ -130,16 +130,14 @@ async def delete_disabled_assets(symbols_to_delete):
                         Prediction.symbol.in_(symbols_to_delete))
                 )
                 await session.commit()
-                print(
-                    f"[✔] Deleted {len(disabled_predictions)} rows from 12hr Prediction table.")
+                # print(f"[✔] Deleted {len(disabled_predictions)} rows from 12hr Prediction table.")
 
             if symbols is not None:
                 await session.execute(
                     delete(Symbol).where(Symbol.symbol.in_(symbols_to_delete))
                 )
                 await session.commit()
-                print(
-                    f"[✔] Deleted {len(disabled_symbols)} rows from Symbols table.")
+                # print(f"[✔] Deleted {len(disabled_symbols)} rows from Symbols table.")
 
             else:
                 print("Nothing to delete")
@@ -302,6 +300,8 @@ async def run_predictions_for_chunk():
             print(f"Follow-up task scheduled at {rerun_time}")
 
         twelve_hour_job_state = False
+        
+        del predicted, all_results, twelve_hrs_summary, twelve_hrs_buy_summary, asset_list, disabled, chunks_dict
         log_memory("After 12hr prediction memory usage")
 
         return True
@@ -353,6 +353,10 @@ async def save_exit_12hr_summary(session: AsyncSession, update_label="Closure"):
         await session.commit()
         await session.refresh(last_instance)
         print(f"[✔] 12hr summary table updated.")
+        
+        del twelve_hrs_summary, current_summary, last_instance
+        
+        gc.collect()
         return True
 
     except Exception as e:
@@ -402,6 +406,10 @@ async def save_exit_12hr_buy_summary(session: AsyncSession, update_label="Closur
         await session.commit()
         await session.refresh(last_instance)
         print(f"[✔] 12hr(buy) summary table updated.")
+        
+        del twelve_hrs_buy_summary, current_summary, last_instance, latest_predictions, details
+        
+        gc.collect()
         return True
 
     except Exception as e:
@@ -479,146 +487,128 @@ async def create_12hr_buy_summary(session: AsyncSession, twelve_hrs_buy_summary)
         print(f"[✖] Failed to create 12hr buy summary: {e}")
 
 
-async def get_current_predictions() -> List[str]:
+BATCH_SIZE = 1000
+async def get_current_predictions() -> None:
     """
     Fetches all current asset symbols, gets their latest prices from Binance,
     filters out disabled assets, and updates the prediction records accordingly.
 
     - Determines whether each prediction has been "Reached" based on current vs. predicted price.
     - Updates fields like `achievement`, `time_reached`, `price_difference`, and status flags.
-    - Performs a bulk upsert of the predictions into the database.
-    - Successive Update of 12hr Summary(accuracy) tables
+    - Updates predictions row by row (streaming) with batch commits to save memory.
+    - Successive Update of 12hr Summary(accuracy) tables.
+    - Stream rows, update in-place
+    - Batch Commit: Commit in batches to save memory
+    - Cleanup memory
 
     Logs progress and errors to the console.
     """
-    global twelve_hour_job_state
-    if twelve_hour_job_state:
-        print("[✖]12hour prediction is currently running!")
-        return
-    
-    print(f"Starting to update 12hr latest prices...")
-    print(datetime.now())
-    all_prices = {}
-
-    async with AsyncSessionLocal() as session:
-        result = await session.execute(select(Symbol.symbol))
-        symbols: List[str] = result.scalars().all()
-
-    if not symbols:
-        print("Symbols list is empty")
-        return
-
-    all_assets, asset_list_disabled = get_filtered_assetchunk_status(symbols)
-    await delete_disabled_assets(asset_list_disabled)
-
-    async with httpx.AsyncClient() as client:
-        resp = await client.get("https://api.binance.com/api/v3/ticker/24hr")
-        resp.raise_for_status()
-        tickers = resp.json()
-
-    quote = "USDT"
-    price_map = {item['symbol']: item['lastPrice'] for item in tickers}
-
     try:
-        for symbol in all_assets:
-            last_price_str = price_map.get(symbol + quote)
-            if last_price_str:
-                all_prices[symbol] = float(last_price_str)
-
-        async with AsyncSessionLocal() as session:
-            result = await session.execute(select(Prediction))
-            all_rows = result.scalars().all()
-
-        if not all_rows:
-            print("Prediction Table is empty.")
+        log_memory("12hr Current memory usage")
+        global twelve_hour_job_state
+        if twelve_hour_job_state:
+            print("[✖] 12hr prediction is currently running!")
             return
 
-        predictions = []
-        for row in all_rows:
-            item = row.as_dict()
-            symbol = item["symbol"]
-            previous_current_price = float(item["current_price"])
-            predicted = float(item["predicted_price"])
-            price_at_predicted_time = float(item["price_at_predicted_time"])
-            adjustment_factor = float(0.6)
-            prev_dynamic_sl = item["dynamic_sl"]
-            prediction_status = item["prediction_status"]
+        print(f"Starting to update 12hr latest prices...")
+        print(datetime.now())
+        all_prices = {}
 
-            prediction_status_determiner = True if predicted > price_at_predicted_time else False
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(select(Symbol.symbol))
+            symbols = result.scalars().all()
 
-            achievement = item["achievement"]
-            current = all_prices.get(symbol)
-            time_reached = datetime.now(timezone.utc)
+        if not symbols:
+            print("Symbols list is empty")
+            return
 
-            if current is not None:    
-                if achievement == "Not Reached" or achievement is None:
-                    if prediction_status_determiner == True and current > predicted:
-                        item["achievement"] = "Reached"
-                        item["time_reached"] = time_reached
+        all_assets, asset_list_disabled = get_filtered_assetchunk_status(symbols)
+        await delete_disabled_assets(asset_list_disabled)
 
-                        if prediction_status == "Buy":
-                            item["prediction_status"] = "Buy - Reached"
-                    
-                    elif prediction_status_determiner == False and current < predicted:
-                        item["achievement"] = "Reached"
-                        item["time_reached"] = time_reached
+        async with httpx.AsyncClient() as client:
+            resp = await client.get("https://api.binance.com/api/v3/ticker/24hr")
+            resp.raise_for_status()
+            tickers = resp.json()
 
-                        if prediction_status == "Buy":
-                            item["prediction_status"] = "Buy - Reached"
-                    
-                    else:
-                        item["achievement"] = "Not Reached"
+        quote = "USDT"
+        for item in tickers:
+            all_prices[item['symbol'].replace(quote, "")] = float(item['lastPrice'])
+
+        updated_count = 0
+        async with AsyncSessionLocal() as session:
+            stream = await session.stream(select(Prediction))
+            async for row in stream.scalars():
+                item = row.as_dict()
+                symbol = item["symbol"]
+                current = all_prices.get(symbol)
                 
-                achievement = item["achievement"]
+                if current is None:
+                    continue
+
+                previous_current_price = float(item["current_price"])
+                predicted = float(item["predicted_price"])
+                price_at_predicted_time = float(item["price_at_predicted_time"])
+                adjustment_factor = 0.6
+                prev_dynamic_sl = item["dynamic_sl"]
                 prediction_status = item["prediction_status"]
+                achievement = item["achievement"]
+                prediction_status_determiner = predicted > price_at_predicted_time
+                time_reached = datetime.now(timezone.utc)
 
-                if achievement == "Reached" and prediction_status in ("Buy", "Reached"):
-                    item["prediction_status"] = "Buy - Reached" 
+                if achievement == "Not Reached" or achievement is None:
+                    if prediction_status_determiner and current > predicted:
+                        row.achievement = "Reached"
+                        row.time_reached = time_reached
+                        if prediction_status == "Buy":
+                            row.prediction_status = "Buy - Reached"
+                    elif not prediction_status_determiner and current < predicted:
+                        row.achievement = "Reached"
+                        row.time_reached = time_reached
+                        if prediction_status == "Buy":
+                            row.prediction_status = "Buy - Reached"
+                    else:
+                        row.achievement = "Not Reached"
 
-                diff = ((current - price_at_predicted_time) /
-                        price_at_predicted_time) * 100
+                if row.achievement == "Reached" and row.prediction_status in ("Buy", "Reached"):
+                    row.prediction_status = "Buy - Reached"
+
+                diff = ((current - price_at_predicted_time) / price_at_predicted_time) * 100
                 status = current > previous_current_price
-                stat = ((current - price_at_predicted_time) / price_at_predicted_time) * 100
+                stat = diff
 
                 dynamic_tp = float(item["dynamic_tp"])
-                dynamic_sl =((predicted - current) / current) * adjustment_factor * 100
+                dynamic_sl = ((predicted - current) / current) * adjustment_factor * 100
                 rrr = dynamic_tp / dynamic_sl if dynamic_sl != 0 else 0
                 sl_status = dynamic_sl > prev_dynamic_sl if prev_dynamic_sl else None
 
-                item["current_price"] = round(current, 8)
-                item["price_change_status"] = status
-                item["price_difference_currently"] = round(diff, 3)
-                item["current_status"] = stat >= 1.2
-                item["dynamic_sl"] = round(dynamic_sl, 3)
-                item["rrr"] = round(rrr, 2)
-                item["sl_status"] = sl_status
-                predictions.append(item)
+                row.current_price = round(current, 8)
+                row.price_change_status = status
+                row.price_difference_currently = round(diff, 3)
+                row.current_status = stat >= 1.2
+                row.dynamic_sl = round(dynamic_sl, 3)
+                row.rrr = round(rrr, 2)
+                row.sl_status = sl_status
 
-        stmt = insert(Prediction).values(predictions)
-        update_cols = {
-            col.name: getattr(stmt.excluded, col.name)
-            for col in Prediction.__table__.columns
-            if col.name not in ("id", "created_at", "symbol")
-        }
-        stmt = stmt.on_conflict_do_update(
-            index_elements=["symbol"], set_=update_cols)
+                updated_count += 1
 
-        async with AsyncSessionLocal() as session:
-            await session.execute(stmt)
+                if updated_count % BATCH_SIZE == 0:
+                    await session.commit()
+                    print(f"[✔] Committed {updated_count} rows so far...")
+
             await session.commit()
 
-        print(
-            f"[✔] Successfully Upserted {len(predictions)} rows on 12hrs Prediction Table.")
+        print(f"[✔] Successfully updated {updated_count} rows in 12hr Prediction Table.")
 
         async for db in get_db():
             await save_exit_12hr_summary(db, update_label="Patch")
             await save_exit_12hr_buy_summary(db, update_label="Patch")
-        
-        gc.collect() 
-        log_memory("12hr Current memory usage on refresh")
 
-    except Exception as e:
-        print(f"Error during price update: {e}")
+        del tickers, all_prices, all_assets
+        gc.collect()
+        log_memory("12hr Current memory usage after refresh")
+    
+    except Exception as e: 
+        print(f"Error during 12hr prediction data update: {e}")
 
 
 async def convert_datetime(iso_input):
@@ -699,7 +689,7 @@ async def fetch_12hrs_summary(db: AsyncSession):
     """
     Fetch 12-hour prediction summary.
 
-    This function retrieves summary statistics for all "Buy" predictions 
+    This function retrieves latest summary statistics for all "Buy" predictions 
     in the predictions_v3 prediction table. It calculates and returns:
     - from: The earliest prediction time
     - to: The latest expiry time
@@ -743,7 +733,7 @@ async def fetch_12hrs_buy_summary(db: AsyncSession):
     """
     Fetch 12-hour buy prediction summary.
 
-    This function retrieves summary statistics for all "Buy" predictions 
+    This function retrieves latest summary statistics for all "Buy" predictions 
     in the predictions_v3 prediction table. It calculates and returns:
     - from: The earliest prediction time
     - to: The latest expiry time
