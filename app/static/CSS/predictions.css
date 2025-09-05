@@ -65,7 +65,20 @@ main{padding:18px 0 40px}
     padding:6px 8px; border-radius:999px;
 }
 .countdown{font-variant-numeric:tabular-nums}
-.table-wrap{overflow:auto; border-radius:10px; border:1px solid var(--border)}
+/* .table-wrap{overflow:auto; border-radius:10px; border:1px solid var(--border)} */
+
+/* Smooth scroll container */
+.table-wrap { 
+  overflow: auto;
+  border-radius:10px;
+  /* border:1px solid var(--border); */
+  will-change: scroll-position;
+  -webkit-overflow-scrolling: touch;
+}
+
+#table-12h .id-col,
+#table-4h  .id-col { width: 44px; }
+
 table{width:100%; border-collapse:separate; border-spacing:0; min-width:1100px; background:#0f1530}
 thead th{
     position:sticky; top:0; background:#0f1530; z-index:1; text-align:left; padding:10px 12px;
@@ -88,6 +101,8 @@ tbody tr.reached{background:var(--reached-bg)}
 .bool.up{   color:#059669; } /* emerald-600 */
 .bool.down{ color:#dc2626; } /* red-600   */
 
+/* Optional: prevent long text from blowing width */
+th, td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* Modal */
 /* ===== Modern, glassy Help Modal (drop-in CSS) ===== */
@@ -97,7 +112,7 @@ tbody tr.reached{background:var(--reached-bg)}
   position: fixed;
   inset: 0;
   z-index: 9999;
-  display: none;                           /* toggled by .is-open */
+  display: none;
   align-items: center;
   justify-content: center;
   padding: 16px;

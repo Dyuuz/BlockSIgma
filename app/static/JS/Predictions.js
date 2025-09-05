@@ -1,4 +1,4 @@
-// ===== Predictions.js (accurate summary wiring) =====
+// ===== Predictions.js (smooth rendering + controls) =====
 
 // ---- Table data endpoints & polling ----
 const ENDPOINT_12H = "/price/latest-predictions";
@@ -41,6 +41,30 @@ const state = {
 // Default display timezone (user can change)
 let DISPLAY_TZ = "Africa/Lagos";
 
+// ---- Smoothness helpers ----
+const aborters = { "12h": null, "4h": null };
+const RENDER_Q = { "12h": 0, "4h": 0 };
+
+// Virtualization config/state per scope
+const VCFG = {
+  "12h": { rowHeight: 36, overscan: 12, mounted: false, count: 0, start: 0, end: 0 },
+  "4h":  { rowHeight: 36, overscan: 12, mounted: false, count: 0, start: 0, end: 0 },
+};
+
+// Coalesce multiple render() calls into one paint
+function scheduleRender(scope, fn){
+  if (RENDER_Q[scope]) cancelAnimationFrame(RENDER_Q[scope]);
+  RENDER_Q[scope] = requestAnimationFrame(()=> {
+    RENDER_Q[scope] = 0;
+    fn();
+  });
+}
+
+// Lightweight debounce
+function debounce(fn, wait=150){
+  let t; return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn(...args), wait); };
+}
+
 // ---------- Utilities ----------
 function safe(v){ return (v===null||v===undefined) ? "—" : String(v).replace(/[&<>"']/g, s=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[s])); }
 const fmtNum = (v, d=4) => (isFinite(v) ? Number(v).toLocaleString(undefined,{minimumFractionDigits:d, maximumFractionDigits:d}) : "—");
@@ -49,7 +73,7 @@ const polarityClass = (n)=> (isFinite(n) ? (n<0?"negative":(n>0?"positive":"")) 
 
 const fmtBool = (b) => {
   const yes = !!b;
-  const icon = yes ? "▲" : "▼";          // or "↑"/"↓" if you prefer
+  const icon = yes ? "▲" : "▼";          // or "↑"/"↓"
   const cls  = yes ? "up" : "down";
   return `<span class="bool ${cls}" title="${yes ? "True" : "False"}" aria-label="${yes ? "True" : "False"}">${icon}</span>`;
 };
@@ -101,13 +125,13 @@ function fmtTimeTZ(ts) {
 }
 const fmtTime = (t) => fmtTimeTZ(t);
 
-// HTTP helper
-async function httpGet(url){
+// ---------- HTTP helper (abortable) ----------
+async function httpGet(url, controller){
   if (window.axios) {
-    const { data } = await axios.get(url, { headers:{ "Accept":"application/json" }});
+    const { data } = await axios.get(url, { signal: controller?.signal, headers:{ "Accept":"application/json" }});
     return data;
   } else {
-    const res = await fetch(url, { headers:{ "Accept":"application/json" }});
+    const res = await fetch(url, { signal: controller?.signal, headers:{ "Accept":"application/json" }});
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   }
@@ -203,7 +227,7 @@ function renderSummaryLines(scope, summary) {
         <span class="acc-label">${label}</span>
         <span class="acc-right">
           <span class="acc-count">${correct} / ${total}</span>
-          <span class="acc-pct ${badgeClass(pct)}">"${pctTxt}"</span>
+          <span class="acc-pct ${badgeClass(pct)}">${pctTxt}</span>
         </span>
       </div>`;
   };
@@ -212,12 +236,12 @@ function renderSummaryLines(scope, summary) {
   host.innerHTML = row("Previous Accuracy", past) + row("Present Accuracy", present);
 }
 
-
 async function fetchAndRenderSummary(scope) {
   const key = `${scope}s`; // "12h" -> "12hs", "4h" -> "4hs"
   const url = ENDPOINTS[key];
   if (!url) return;
   try {
+    // summaries are small – no need to abort these
     const payload = await httpGet(url);
     const summary = normalizeSummaryPayload(payload);
     renderSummaryLines(scope, summary);
@@ -238,59 +262,144 @@ function setTimesBadge(scope){
   block.textContent = `Prediction: ${fmtTime(item.predicted_time)} • Expiry: ${fmtTime(item.expiry_time)}`;
 }
 
-// ---------- Rendering (tables) ----------
+// ---------- Rendering (virtualized tables) ----------
 function render(scope){
+  const table = document.getElementById(`table-${scope}`);
   const tbody = document.getElementById(`body-${scope}`);
-  if (!tbody) return;
+  if (!table || !tbody) return;
+
+  const scroller = table.closest('.table-wrap') || table.parentElement;
   const rows = (state[scope].filtered.length ? state[scope].filtered : state[scope].data) || [];
+  VCFG[scope].count = rows.length;
+
+  // Empty state
   if (!rows.length){
-    tbody.innerHTML = `<tr><td class="muted" colspan="99">No data</td></tr>`;
+    tbody.innerHTML = `<tr><td class="muted" colspan="17">No data</td></tr>`;
     setTimesBadge(scope);
     return;
   }
 
-  const html = rows.map((item, idx) => {
-    // Prefer backend-provided id-like fields; fallback to display index (1-based)
-    const displayId = item.id ?? item._id ?? item.asset_id ?? item.rank ?? (idx + 1);
+  // First-time mount: create just two spacer rows (top & bottom). No anchor, no inner table.
+  if (!VCFG[scope].mounted){
+    tbody.innerHTML = `
+      <tr data-pad="top"><td colspan="17" style="padding:0;border:0"><div style="height:0px"></div></td></tr>
+      <tr data-pad="bot"><td colspan="17" style="padding:0;border:0"><div style="height:0px"></div></td></tr>
+    `;
 
-    const cells = [
-      `<td class="id-col">${safe(displayId)}</td>`,
-      `<td><strong>${safe(item.asset_name)}</strong><div class="muted">${safe(item.symbol)}</div></td>`,
-      `<td>${safe(item.symbol)}</td>`,
-      `<td class="right-align">$${fmtNum(item.current_price, 6)}</td>`,
-      `<td class="right-align">$${fmtNum(item.price_at_predicted_time, 6)}</td>`,
-      `<td class="right-align">$${fmtNum(item.predicted_price, 6)}</td>`,
-      `<td class="right-align"><span class="value-change ${polarityClass(item.price_difference_currently)}">${fmtPct(item.price_difference_currently)}</span></td>`,
-      `<td class="right-align"><span class="value-change ${polarityClass(item.price_difference_at_predicted_time)}">${fmtPct(item.price_difference_at_predicted_time)}</span></td>`,
-      `<td>${fmtBool(item.current_status)}</td>`,
-      `<td>${safe(item.prediction_status)}</td>`,
-      // (NO interval cell)
-      `<td>${safe(item.achievement)}</td>`,
-      `<td>${fmtTime(item.time_reached)}</td>`,
-      `<td class="right-align"><span class="${polarityClass(item.dynamic_tp)}">${fmtPct(item.dynamic_tp)}</span></td>`,
-      `<td class="right-align"><span class="${polarityClass(item.dynamic_sl)}">${fmtPct(item.dynamic_sl)}</span></td>`,
-      `<td class="right-align"><span class="${polarityClass(item.rrr)}">${fmtNum(item.rrr, 2)}</span></td>`,
-      `<td>${fmtBool(item.sl_status)}</td>`,
-      `<td>${fmtBool(item.price_change_status)}</td>`,
-      // LAST TWO: Predicted & Expiry
-      `<td>${fmtTime(item.predicted_time)}</td>`,
-      `<td>${fmtTime(item.expiry_time)}</td>`,
-    ];
+    // Measure row height using a true row with correct number of cells
+    const probe = document.createElement('tr');
+    probe.innerHTML = [
+      `<td class="id-col">1</td>`,
+      `<td><strong>Probe</strong><div class="muted">PRB</div></td>`,
+      `<td>PRB</td>`,
+      `<td class="right-align">$0.000000</td>`,
+      `<td class="right-align">$0.000000</td>`,
+      `<td class="right-align">$0.000000</td>`,
+      `<td class="right-align">0.00%</td>`,
+      `<td class="right-align">0.00%</td>`,
+      `<td>${fmtBool(true)}</td>`,
+      `<td>—</td>`,
+      `<td>—</td>`,
+      `<td>${fmtTime(new Date().toISOString())}</td>`,
+      `<td class="right-align">0.00%</td>`,
+      `<td class="right-align">0.00%</td>`,
+      `<td class="right-align">0</td>`,
+      `<td>${fmtBool(false)}</td>`,
+      `<td>${fmtBool(false)}</td>`
+    ].join('');
+    // Temporarily insert the probe between the padders
+    const botPad = tbody.querySelector('tr[data-pad="bot"]');
+    tbody.insertBefore(probe, botPad);
 
-    const status = String(item.prediction_status ?? '')
-      .trim()
-      .toLowerCase()
-      .replace(/\s*[-–—]\s*/g, ' - ');
-    const trClass = (status === 'buy - reached') ? 'reached' : '';
+    requestAnimationFrame(()=>{
+      VCFG[scope].rowHeight = Math.max(24, Math.round(probe.getBoundingClientRect().height || 36));
+      probe.remove(); // clean up
+      VCFG[scope].mounted = true;
+      scheduleRender(scope, ()=> renderVirtualSlice(scope)); // first paint
+    });
 
-    return `<tr class="${trClass}">${cells.join("")}</tr>`;
-  }).join("");
+    // Scroll listener (passive + rAF)
+    const onScroll = ()=> scheduleRender(scope, ()=> renderVirtualSlice(scope));
+    scroller.addEventListener('scroll', onScroll, { passive: true });
+  } else {
+    // Subsequent paints
+    scheduleRender(scope, ()=> renderVirtualSlice(scope));
+  }
 
-  tbody.innerHTML = html;
   setTimesBadge(scope);
+
+  function renderVirtualSlice(scope){
+    const scroller = table.closest('.table-wrap') || table.parentElement;
+    const topPadDiv = tbody.querySelector('tr[data-pad="top"] > td > div');
+    const botPadDiv = tbody.querySelector('tr[data-pad="bot"] > td > div');
+
+    const h = scroller.clientHeight || 400;
+    const scrollTop = scroller.scrollTop || 0;
+    const rh = VCFG[scope].rowHeight;
+    const total = VCFG[scope].count;
+    const perView = Math.max(1, Math.ceil(h / rh));
+    const over = VCFG[scope].overscan;
+
+    const start = Math.max(0, Math.floor(scrollTop / rh) - over);
+    const end = Math.min(total, start + perView + over*2);
+
+    if (start === VCFG[scope].start && end === VCFG[scope].end) return;
+    VCFG[scope].start = start; VCFG[scope].end = end;
+
+    // Build only visible rows as real <tr> with 17 <td>s (to match 17 <th>s)
+    const src = (state[scope].filtered.length ? state[scope].filtered : state[scope].data);
+    const visible = src.slice(start, end);
+
+    const frag = document.createDocumentFragment();
+    visible.forEach((item, idx) => {
+      const displayId = item.id ?? item._id ?? item.asset_id ?? item.rank ?? (start + idx + 1);
+      const status = String(item.prediction_status ?? '').trim().toLowerCase().replace(/\s*[-–—]\s*/g, ' - ');
+      const tr = document.createElement('tr');
+      if (status === 'buy - reached') tr.className = 'reached';
+      tr.innerHTML = [
+        `<td class="id-col">${safe(displayId)}</td>`,
+        `<td><strong>${safe(item.asset_name)}</strong><div class="muted">${safe(item.symbol)}</div></td>`,
+        `<td>${safe(item.symbol)}</td>`,
+        `<td class="right-align">$${fmtNum(item.current_price, 6)}</td>`,
+        `<td class="right-align">$${fmtNum(item.price_at_predicted_time, 6)}</td>`,
+        `<td class="right-align">$${fmtNum(item.predicted_price, 6)}</td>`,
+        `<td class="right-align"><span class="value-change ${polarityClass(item.price_difference_currently)}">${fmtPct(item.price_difference_currently)}</span></td>`,
+        `<td class="right-align"><span class="value-change ${polarityClass(item.price_difference_at_predicted_time)}">${fmtPct(item.price_difference_at_predicted_time)}</span></td>`,
+        `<td>${fmtBool(item.current_status)}</td>`,
+        `<td>${safe(item.prediction_status)}</td>`,
+        `<td>${safe(item.achievement)}</td>`,
+        `<td>${fmtTime(item.time_reached)}</td>`,
+        `<td class="right-align"><span class="${polarityClass(item.dynamic_tp)}">${fmtPct(item.dynamic_tp)}</span></td>`,
+        `<td class="right-align"><span class="${polarityClass(item.dynamic_sl)}">${fmtPct(item.dynamic_sl)}</span></td>`,
+        `<td class="right-align"><span class="${polarityClass(item.rrr)}">${fmtNum(item.rrr, 2)}</span></td>`,
+        `<td>${fmtBool(item.sl_status)}</td>`,
+        `<td>${fmtBool(item.price_change_status)}</td>`
+      ].join('');
+      frag.appendChild(tr);
+    });
+
+    // Remove any previously rendered visible rows (i.e., everything except the two padders)
+    // and re-insert the new slice in between.
+    // We do this by clearing between the padders to keep DOM operations minimal.
+    let node = tbody.firstChild;
+    const keep = new Set(['top', 'bot']);
+    while (node) {
+      const next = node.nextSibling;
+      if (node.nodeType === 1 && node.tagName === 'TR' && !node.dataset.pad) {
+        tbody.removeChild(node);
+      }
+      node = next;
+    }
+    const botPad = tbody.querySelector('tr[data-pad="bot"]');
+    tbody.insertBefore(frag, botPad);
+
+    // Update padders
+    const topH = start * rh;
+    const botH = Math.max(0, (total - end) * rh);
+    topPadDiv.style.height = `${topH}px`;
+    botPadDiv.style.height = `${botH}px`;
+  }
 }
-
-
 
 // ---------- Sorting ----------
 function sortData(scope, key, type){
@@ -314,8 +423,12 @@ function sortData(scope, key, type){
     if (A>B) return dir==="asc" ? 1 : -1;
     return 0;
   });
-  render(scope);
+
+  // 👇 force re-render of the current virtual window
+  invalidateVirtual(scope);
+  scheduleRender(scope, ()=> render(scope));
 }
+
 
 function attachSorting(scope){
   const table = document.getElementById(`table-${scope}`);
@@ -337,55 +450,58 @@ function applySearch(q){
                 String(it.symbol||"").toLowerCase().includes(query));
       });
     }
-    render(scope);
+    invalidateVirtual(scope);           // 👈 important
+    scheduleRender(scope, ()=> render(scope));
   });
 }
 
+
 // ---------- Fetch / render (tables) ----------
 async function fetchAndRender(scope, url){
-  if (state[scope].fetching) return;
+  if (state[scope].fetching) {
+    // Cancel the in-flight one and continue with the newest
+    try { aborters[scope]?.abort(); } catch {}
+  }
+  const controller = new AbortController();
+  aborters[scope] = controller;
   state[scope].fetching = true;
   try{
-    const raw = await httpGet(url);
+    const raw = await httpGet(url, controller);
     const list = Array.isArray(raw) ? raw
               : Array.isArray(raw?.data) ? raw.data
               : (raw ? [raw] : []);
 
     state[scope].data = list;
 
-    const q = document.getElementById("searchInput")?.value || "";
+    // Preserve current search without recomputing thrash
+    const q = document.getElementById("searchInput")?.value?.trim().toLowerCase() || "";
     if (q) {
-      const ql = q.toLowerCase();
       state[scope].filtered = state[scope].data.filter(it =>
-        String(it.asset_name||"").toLowerCase().includes(ql) ||
-        String(it.symbol||"").toLowerCase().includes(ql)
+        String(it.asset_name||"").toLowerCase().includes(q) ||
+        String(it.symbol||"").toLowerCase().includes(q)
       );
     } else {
       state[scope].filtered = [];
     }
 
-    // ✅ keep current sort across refreshes
+    // Keep current sort across refreshes
     applyCurrentSort(scope);
+    invalidateVirtual(scope); 
 
-    // ✅ CAPTURE scrollTop from the .table-wrap around this table
-    const scroller = document.querySelector(`#table-${scope}`)?.closest('.table-wrap');
-    const y = scroller?.scrollTop ?? 0;
-
-    render(scope);
-
-    // ✅ RESTORE scrollTop
-    if (scroller) scroller.scrollTop = y;
+    // Repaint via scheduler (keeps 60fps)
+    scheduleRender(scope, ()=> render(scope));
 
     state[scope].lastUpdated = new Date();
     updateLastUpdated(scope);
   } catch (err){
-    console.error(`Failed to fetch ${scope}:`, err);
-    showError(scope, err);
+    if (err?.name !== 'AbortError') {
+      console.error(`Failed to fetch ${scope}:`, err);
+      showError(scope, err);
+    }
   } finally {
     state[scope].fetching = false;
   }
 }
-
 
 function showError(scope, err) {
   const tbody = document.getElementById(`body-${scope}`);
@@ -397,7 +513,9 @@ function showError(scope, err) {
   }
 }
 
-// ---------- Polling & countdown ----------
+// ---------- Polling & countdown (drift-proof, visibility-safe) ----------
+const REFRESH_MS = REFRESH_SECONDS * 1000;
+
 function startCountdown(scope, dataUrl){
   const countEl   = document.getElementById(`count-${scope}`);
   const updatedEl = document.getElementById(`updated-${scope}`);
@@ -410,113 +528,98 @@ function startCountdown(scope, dataUrl){
 
   // initial fetches
   fetchAndRender(scope, dataUrl);
-  fetchAndRenderSummary(scope); // summary too
+  fetchAndRenderSummary(scope);
 
-  state[scope].countdown = REFRESH_SECONDS;
-  countEl.textContent = `${state[scope].countdown}s`;
+  // schedule state
+  state[scope].nextRefreshAt = Date.now() + REFRESH_MS;
+  let displayTimer = null;   // updates the "XXs" text
+  let fetchTimer   = null;   // schedules the next fetch
 
-  if (state[scope].ticking) clearInterval(state[scope].ticking);
-  state[scope].ticking = setInterval(() => {
-    state[scope].countdown -= 1;
-    if (state[scope].countdown <= 0) {
-      state[scope].countdown = REFRESH_SECONDS;
-      fetchAndRender(scope, dataUrl);
-      fetchAndRenderSummary(scope); // refresh summaries on same cadence
-    }
-    countEl.textContent = `${state[scope].countdown}s`;
-  }, 1000);
-}
+  const updateCountdown = ()=>{
+    const remaining = Math.max(0, state[scope].nextRefreshAt - Date.now());
+    countEl.textContent = `${Math.ceil(remaining / 1000)}s`;
+  };
 
-// ---------- Timezone select: populate with ALL IANA zones ----------
-function populateTimezones() {
-  const tzSelect = document.getElementById("tzSelect");
-  if (!tzSelect) return;
+  const scheduleFetchLoop = ()=>{
+    clearTimeout(fetchTimer);
+    const delay = Math.max(0, state[scope].nextRefreshAt - Date.now());
+    fetchTimer = setTimeout(async ()=>{
+      // try/catch just to be safe; don't let errors break the loop
+      try {
+        await fetchAndRender(scope, dataUrl);
+        fetchAndRenderSummary(scope);
+      } finally {
+        // set next target based on the *previous* target, not "now",
+        // so the cadence is stable even if a refresh is delayed
+        state[scope].nextRefreshAt += REFRESH_MS;
 
-  tzSelect.innerHTML = "";
+        // If we fell behind (e.g., background throttling), skip forward
+        // in REFRESH_MS chunks until nextRefreshAt is in the future.
+        while (state[scope].nextRefreshAt <= Date.now()) {
+          state[scope].nextRefreshAt += REFRESH_MS;
+        }
 
-  let zones = [];
-  if (Intl.supportedValuesOf) {
-    zones = Intl.supportedValuesOf("timeZone");
-  } else {
-    zones = [
-      "UTC","Africa/Lagos","Europe/London","America/New_York","Asia/Tokyo",
-      "Australia/Sydney","America/Sao_Paulo","Asia/Dubai","Asia/Kolkata"
-    ];
-  }
-  zones.sort();
+        scheduleFetchLoop();
+        updateCountdown();
+      }
+    }, delay);
+  };
 
-  zones.forEach(tz => {
-    const opt = document.createElement("option");
-    opt.value = tz;
-    opt.textContent = tz;
-    tzSelect.appendChild(opt);
-  });
+  const startDisplayTimer = ()=>{
+    if (displayTimer) return;
+    updateCountdown();
+    displayTimer = setInterval(updateCountdown, 1000);
+  };
+  const stopDisplayTimer = ()=>{
+    if (displayTimer) { clearInterval(displayTimer); displayTimer = null; }
+  };
 
-  try {
-    const userTZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    if (zones.includes(userTZ)) {
-      tzSelect.value = userTZ;
-      DISPLAY_TZ = userTZ;
+  // Visibility handler: do NOT reset the countdown.
+  const onVis = ()=>{
+    const hidden = document.hidden;
+
+    if (hidden) {
+      // Save bandwidth and cancel any in-flight request
+      try { aborters[scope]?.abort(); } catch {}
+      // Optional: stop the UI updater to save CPU
+      stopDisplayTimer();
+      // We do NOT cancel or change the scheduled fetch target;
+      // the loop will catch up when the browser lets timers run again.
     } else {
-      tzSelect.value = "UTC";
-      DISPLAY_TZ = "UTC";
+      // On return: if overdue, fetch immediately; otherwise just resume the UI updater
+      if (Date.now() >= state[scope].nextRefreshAt) {
+        // Run one fetch now and reschedule from the last target (+REFRESH_MS)
+        clearTimeout(fetchTimer);
+        (async ()=>{
+          try {
+            await fetchAndRender(scope, dataUrl);
+            fetchAndRenderSummary(scope);
+          } finally {
+            state[scope].nextRefreshAt += REFRESH_MS;
+            while (state[scope].nextRefreshAt <= Date.now()) {
+              state[scope].nextRefreshAt += REFRESH_MS;
+            }
+            scheduleFetchLoop();
+            updateCountdown();
+          }
+        })();
+      } else {
+        // Not overdue—just ensure the loop is scheduled
+        scheduleFetchLoop();
+        updateCountdown();
+      }
+      startDisplayTimer();
     }
-  } catch(e) {
-    tzSelect.value = "UTC";
-    DISPLAY_TZ = "UTC";
-  }
+  };
+  document.addEventListener('visibilitychange', onVis);
 
-  tzSelect.addEventListener("change", () => {
-    DISPLAY_TZ = tzSelect.value || "UTC";
-    // re-render times immediately (no refetch)
-    render("12h");
-    render("4h");
-    updateLastUpdated("12h");
-    updateLastUpdated("4h");
-  });
+  // Kick things off
+  startDisplayTimer();
+  scheduleFetchLoop();
 }
 
-// ---------- UI wiring ----------
-window.addEventListener('DOMContentLoaded', () => {
-  // Search
-  const searchInput = document.getElementById("searchInput");
-  if (searchInput) {
-    searchInput.addEventListener("input", (e)=> applySearch(e.target.value));
-  }
 
-  // Tabs
-  document.querySelectorAll(".tab").forEach(tab=>{
-    tab.addEventListener("click", ()=>{
-      document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
-      tab.classList.add("active");
-      const target = tab.dataset.target;
-      document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));
-      const panel = document.getElementById(target);
-      if (panel) panel.classList.add("active");
-    });
-  });
-
-  // Help modal (safe if missing)
-  const modal = document.getElementById("modal");
-  const helpBtn = document.getElementById("helpBtn");
-  const closeModal = document.getElementById("closeModal");
-  if (helpBtn && modal) helpBtn.addEventListener("click", () => modal.classList.add("is-open"));
-  if (closeModal && modal) closeModal.addEventListener("click", () => modal.classList.remove("is-open"));
-  if (modal) modal.addEventListener("click", (e) => { if (e.target === modal) modal.classList.remove("is-open"); });
-
-  // Sorting
-  attachSorting("12h");
-  attachSorting("4h");
-
-  // Timezone dropdown (400+ zones)
-  populateTimezones();
-
-  // Start polling
-  startCountdown("12h", ENDPOINT_12H);
-  startCountdown("4h", ENDPOINT_4H);
-});
-
-// time-only, using selected DISPLAY_TZ (e.g., "Africa/Lagos")
+// ---------- Timezone helpers ----------
 function fmtTimeOnlyTZ(date) {
   if (!date) return "—";
   try {
@@ -564,4 +667,99 @@ function applyCurrentSort(scope){
     if (A>B) return dir==="asc" ? 1 : -1;
     return 0;
   });
+}
+
+// ---------- UI wiring ----------
+window.addEventListener('DOMContentLoaded', () => {
+  // Search (debounced)
+  const searchInput = document.getElementById("searchInput");
+  if (searchInput) {
+    const onSearch = debounce((val)=> applySearch(val), 180);
+    searchInput.addEventListener("input", (e)=> onSearch(e.target.value));
+    searchInput.addEventListener("keydown", (e)=> { if (e.key === "Enter") e.currentTarget.blur(); });
+  }
+
+  // Tabs
+  document.querySelectorAll(".tab").forEach(tab=>{
+    tab.addEventListener("click", ()=>{
+      document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+      tab.classList.add("active");
+      const target = tab.dataset.target;
+      document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));
+      const panel = document.getElementById(target);
+      if (panel) panel.classList.add("active");
+    });
+  });
+
+  // Help modal (safe if missing)
+  const modal = document.getElementById("modal");
+  const helpBtn = document.getElementById("helpBtn");
+  const closeModal = document.getElementById("closeModal");
+  if (helpBtn && modal) helpBtn.addEventListener("click", () => modal.classList.add("is-open"));
+  if (closeModal && modal) closeModal.addEventListener("click", () => modal.classList.remove("is-open"));
+  if (modal) modal.addEventListener("click", (e) => { if (e.target === modal) modal.classList.remove("is-open"); });
+
+  // Sorting
+  attachSorting("12h");
+  attachSorting("4h");
+
+  // Timezone dropdown (400+ zones)
+  populateTimezones();
+
+  // Start polling
+  startCountdown("12h", ENDPOINT_12H);
+  startCountdown("4h", ENDPOINT_4H);
+});
+
+// ---------- Timezone select: populate with ALL IANA zones ----------
+function populateTimezones() {
+  const tzSelect = document.getElementById("tzSelect");
+  if (!tzSelect) return;
+
+  tzSelect.innerHTML = "";
+
+  let zones = [];
+  if (Intl.supportedValuesOf) {
+    zones = Intl.supportedValuesOf("timeZone");
+  } else {
+    zones = [
+      "UTC","Africa/Lagos","Europe/London","America/New_York","Asia/Tokyo",
+      "Australia/Sydney","America/Sao_Paulo","Asia/Dubai","Asia/Kolkata"
+    ];
+  }
+  zones.sort();
+
+  zones.forEach(tz => {
+    const opt = document.createElement("option");
+    opt.value = tz;
+    opt.textContent = tz;
+    tzSelect.appendChild(opt);
+  });
+
+  try {
+    const userTZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (zones.includes(userTZ)) {
+      tzSelect.value = userTZ;
+      DISPLAY_TZ = userTZ;
+    } else {
+      tzSelect.value = "UTC";
+      DISPLAY_TZ = "UTC";
+    }
+  } catch(e) {
+    tzSelect.value = "UTC";
+    DISPLAY_TZ = "UTC";
+  }
+
+  tzSelect.addEventListener("change", () => {
+    DISPLAY_TZ = tzSelect.value || "UTC";
+    // re-render times immediately (no refetch)
+    scheduleRender("12h", ()=> { render("12h"); updateLastUpdated("12h"); });
+    scheduleRender("4h", ()=> { render("4h"); updateLastUpdated("4h"); });
+  });
+}
+
+function invalidateVirtual(scope){
+  // Force next renderVirtualSlice to rebuild even if start/end are the same
+  VCFG[scope].start = -1;
+  VCFG[scope].end = -1;
 }
