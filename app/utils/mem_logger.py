@@ -1,7 +1,13 @@
 import psutil, os
+import sys
 import logging
 
-logging.basicConfig(level=logging.INFO)
+handler = logging.StreamHandler(sys.stdout)
+logging.basicConfig(
+    level=logging.INFO,
+    handlers=[handler],
+    format="%(levelname)s:%(name)s: %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 def log_memory(message):
