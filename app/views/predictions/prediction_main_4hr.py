@@ -156,7 +156,7 @@ async def run_predictions_for_chunk():
     Logs progress and errors throughout the process.
     """
     try:
-        log_memory("4hr Prediction Current memory usage")
+        log_memory("4hr Prediction Current memory usage at the start of data training")
 
         global four_hour_job_state
         four_hour_job_state = True
@@ -297,8 +297,6 @@ async def run_predictions_for_chunk():
         four_hour_job_state = False
         
         del predicted, all_results, four_hrs_summary, four_hrs_buy_summary, asset_list, disabled, chunks_dict
-        log_memory("After 4hr prediction memory usage")
-
         return True
 
     except Exception as e:
@@ -307,7 +305,7 @@ async def run_predictions_for_chunk():
     finally:
         gc.collect()
         logger.info("Session cleared.")
-        log_memory("After 4hr prediction memory usage cleared.")
+        log_memory("4hr prediction memory usage at the end of data training.")
 
 async def save_exit_4hr_summary(session: AsyncSession, update_label="Closure"):
     """
