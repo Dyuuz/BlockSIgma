@@ -593,7 +593,7 @@ async def get_current_predictions() -> None:
 
         del tickers, all_prices, all_assets
         gc.collect()
-        log_memory("4hr Current memory usage after refresh")
+        log_memory("4hr Current memory usage after successive update")
 
     except Exception as e: 
         print(f"Error during 4hr prediction data update: {e}")
