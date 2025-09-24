@@ -346,7 +346,8 @@ async def save_exit_12hr_summary(session: AsyncSession, update_label="Closure"):
         last_instance.number_of_reached = twelve_hrs_summary["number of reached"]
         last_instance.number_of_predictions = twelve_hrs_summary["number of predictions"]
         last_instance.accuracy = twelve_hrs_summary["accuracy"]
-        last_instance.details = await fetch_latest_prediction() if update_label == "Closure" else []
+        last_instance.details = [] if update_label == "Closure" else []
+        # last_instance.details = await fetch_latest_prediction() if update_label == "Closure" else []
 
         await session.commit()
         await session.refresh(last_instance)
@@ -399,7 +400,8 @@ async def save_exit_12hr_buy_summary(session: AsyncSession, update_label="Closur
         last_instance.number_of_reached = twelve_hrs_buy_summary["number of reached"]
         last_instance.number_of_predictions = twelve_hrs_buy_summary["number of predictions"]
         last_instance.accuracy = twelve_hrs_buy_summary["accuracy"]
-        last_instance.details = details if update_label == "Closure" else []
+        last_instance.details = [] if update_label == "Closure" else []
+        # last_instance.details = details if update_label == "Closure" else []
 
         await session.commit()
         await session.refresh(last_instance)
