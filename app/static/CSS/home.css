@@ -146,7 +146,7 @@ nav a:hover::after {
 
 /* Disclaimer Section */
 .disclaimer {
-    background: rgba(20, 2, 2, 0.795);
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
     border: 1px solid rgba(255, 255, 255, 0.507);
     border-radius: 12px;
     padding: 20px;
