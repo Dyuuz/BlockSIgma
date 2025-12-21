@@ -321,6 +321,8 @@ async def save_exit_4hr_summary(session: AsyncSession, update_label="Closure"):
     try:
         # print(f"Starting to save the last 4hr summary...")
         four_hrs_summary = await fetch_4hrs_summary(session)
+        print(f"Four hours summary: {four_hrs_summary}")
+        
         from_time = four_hrs_summary["from"]
         from_time_check = await session.execute(
             select(FourHoursSummary).where(FourHoursSummary.from_ == from_time)
@@ -369,6 +371,8 @@ async def save_exit_4hr_buy_summary(session: AsyncSession, update_label="Closure
     try:
         # print(f"Starting to save the last 4hr buy summary...")
         four_hrs_buy_summary = await fetch_4hrs_buy_summary(session)
+        print(f"Four hours buy summary: {four_hrs_buy_summary}")
+        
         from_time = four_hrs_buy_summary["from"]
         from_time_check = await session.execute(
             select(FourHoursBuySummary).where(FourHoursBuySummary.from_ == from_time)
@@ -691,9 +695,13 @@ async def fetch_4hrs_summary(db: AsyncSession):
     first_stmt = select(Prediction4hr).where(Prediction4hr.interval == "4hr").order_by(Prediction4hr.predicted_time.asc()).limit(1)
     first_result = await db.execute(first_stmt)
     first = first_result.scalars().first().predicted_time
+    
+    # Round down to the start of the hour to solve datetime inconsistency issue
+    from_first = first.replace(minute=0, second=0, microsecond=0)
+    
     # first = await convert_datetime(first)
 
-    dt = datetime.fromisoformat(f"{first}")
+    dt = datetime.fromisoformat(f"{from_first}")
     to = dt + timedelta(hours=4)
     # last = await convert_datetime(last)
 
@@ -708,7 +716,7 @@ async def fetch_4hrs_summary(db: AsyncSession):
     accuracy_percent = f"{accuracy}%"
 
     return {
-        "from": first,
+        "from": from_first,
         "to": to,
         "number of reached": accuracy_len,
         "number of predictions": total_count,
@@ -730,12 +738,16 @@ async def fetch_4hrs_buy_summary(db: AsyncSession):
     Data is pulled and calculated directly from the database using async queries.
     """
 
-    first_stmt = select(Prediction4hr).where(Prediction4hr.interval == "4hr").order_by(Prediction4hr.predicted_time.asc()).limit(1)
+    first_stmt = select(Prediction4hr).where(Prediction4hr.interval == "4hr").order_by(Prediction4hr.predicted_time.desc()).limit(1)
     first_result = await db.execute(first_stmt)
     first = first_result.scalars().first().predicted_time
+    
+    # Round down to the start of the hour to solve datetime inconsistency issue
+    from_first = first.replace(minute=0, second=0, microsecond=0)
+    
     # first = await convert_datetime(first)
 
-    dt = datetime.fromisoformat(f"{first}")
+    dt = datetime.fromisoformat(f"{from_first}")
     to = dt + timedelta(hours=4)
     # last = await convert_datetime(last)
 
@@ -758,7 +770,7 @@ async def fetch_4hrs_buy_summary(db: AsyncSession):
     accuracy = round((accuracy_len/total_count) * 100, 1) if total_count else 0.0
     accuracy_percent = f"{accuracy}%"
     return {
-        "from": first,
+        "from": from_first,
         "to": to,
         "number of reached": accuracy_len,
         "number of predictions": total_count,

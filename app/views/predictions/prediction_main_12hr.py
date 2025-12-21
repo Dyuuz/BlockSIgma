@@ -378,6 +378,8 @@ async def save_exit_12hr_buy_summary(session: AsyncSession, update_label="Closur
     try:
         # print(f"Starting to save the last 12hr buy summary...")
         twelve_hrs_buy_summary = await fetch_12hrs_buy_summary(session)
+        print(f"Twelve hours buy summary: {twelve_hrs_buy_summary}")
+        
         from_time = twelve_hrs_buy_summary["from"]
         from_time_check = await session.execute(
             select(TwelveHoursBuySummary).where(
@@ -700,39 +702,39 @@ async def fetch_12hrs_summary(db: AsyncSession):
 
     Data is pulled and calculated directly from the database using async queries.
     """
-    try:
-        first_stmt = (select(Prediction).order_by(
-            Prediction.predicted_time.desc()).limit(1))
-        first_result = await db.execute(first_stmt)
-        
-        first = first_result.scalars().first().predicted_time
-        # first = await convert_datetime(first)
+    first_stmt = (select(Prediction).order_by(
+        Prediction.predicted_time.desc()).limit(1)) # Get latest datetime
+    first_result = await db.execute(first_stmt)
+    first = first_result.scalars().first().predicted_time
+    
+    # Round down to the start of the hour to solve datetime inconsistency issue
+    from_first = first.replace(minute=0, second=0, microsecond=0)
+    
+    # first = await convert_datetime(first)
 
-        dt = datetime.fromisoformat(f"{first}")
-        to = dt + timedelta(hours=12)
-        # last = await convert_datetime(last)
+    dt = datetime.fromisoformat(f"{from_first}")
+    to = dt + timedelta(hours=12)
+    # last = await convert_datetime(last)
 
-        count_stmt = select(func.count(Prediction.id))
-        count_result = await db.execute(count_stmt)
-        total_count = count_result.scalar()
+    count_stmt = select(func.count(Prediction.id))
+    count_result = await db.execute(count_stmt)
+    total_count = count_result.scalar()
 
-        acc_stmt = select(Prediction).where(Prediction.achievement == "Reached")
-        acc_result = await db.execute(acc_stmt)
-        accuracy_len = len(acc_result.scalars().all())
-        accuracy = round((accuracy_len/total_count) *
-                        100, 1) if total_count else 0.0
-        accuracy_percent = f"{accuracy}%"
+    acc_stmt = select(Prediction).where(Prediction.achievement == "Reached")
+    acc_result = await db.execute(acc_stmt)
+    accuracy_len = len(acc_result.scalars().all())
+    accuracy = round((accuracy_len/total_count) *
+                    100, 1) if total_count else 0.0
+    accuracy_percent = f"{accuracy}%"
 
-        return {
-            "from": first,
-            "to": to,
-            "number of reached": accuracy_len,
-            "number of predictions": total_count,
-            "accuracy": accuracy_percent
-        }
+    return {
+        "from": from_first,
+        "to": to,
+        "number of reached": accuracy_len,
+        "number of predictions": total_count,
+        "accuracy": accuracy_percent
+    }
 
-    except Exception as e: 
-        print(f"Error during fetching 12hr summary data: {e}")
 
 async def fetch_12hrs_buy_summary(db: AsyncSession):
     """
@@ -749,12 +751,16 @@ async def fetch_12hrs_buy_summary(db: AsyncSession):
     """
 
     first_stmt = (select(Prediction).order_by(
-        Prediction.predicted_time.asc()).limit(1))
+        Prediction.predicted_time.desc()).limit(1)) # Get latest datetime
     first_result = await db.execute(first_stmt)
     first = first_result.scalars().first().predicted_time
+    
+    # Round down to the start of the hour to solve datetime inconsistency issue
+    from_first = first.replace(minute=0, second=0, microsecond=0)
+    
     # first = await convert_datetime(first)
 
-    dt = datetime.fromisoformat(f"{first}")
+    dt = datetime.fromisoformat(f"{from_first}")
     to = dt + timedelta(hours=12)
     # last = await convert_datetime(last)
 
@@ -778,7 +784,7 @@ async def fetch_12hrs_buy_summary(db: AsyncSession):
                      100, 1) if total_count else 0.0
     accuracy_percent = f"{accuracy}%"
     return {
-        "from": first,
+        "from": from_first,
         "to": to,
         "number of reached": accuracy_len,
         "number of predictions": total_count,
