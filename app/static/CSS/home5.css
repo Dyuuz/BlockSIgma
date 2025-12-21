@@ -38,7 +38,7 @@ header {
 .logo {
     font-size: 24px;
     font-weight: 800;
-    color: #ffffff;
+    background: #ffffff;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     display: flex;
