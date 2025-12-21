@@ -321,7 +321,7 @@ async def save_exit_4hr_summary(session: AsyncSession, update_label="Closure"):
     try:
         # print(f"Starting to save the last 4hr summary...")
         four_hrs_summary = await fetch_4hrs_summary(session)
-        print(f"Four hours summary: {four_hrs_summary}")
+        # print(f"Four hours summary: {four_hrs_summary}")
         
         from_time = four_hrs_summary["from"]
         from_time_check = await session.execute(
@@ -371,7 +371,7 @@ async def save_exit_4hr_buy_summary(session: AsyncSession, update_label="Closure
     try:
         # print(f"Starting to save the last 4hr buy summary...")
         four_hrs_buy_summary = await fetch_4hrs_buy_summary(session)
-        print(f"Four hours buy summary: {four_hrs_buy_summary}")
+        # print(f"Four hours buy summary: {four_hrs_buy_summary}")
         
         from_time = four_hrs_buy_summary["from"]
         from_time_check = await session.execute(

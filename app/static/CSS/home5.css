@@ -38,7 +38,7 @@ header {
 .logo {
     font-size: 24px;
     font-weight: 800;
-    background: #3b82f6;
+    color: #ffffff;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     display: flex;
@@ -91,7 +91,8 @@ nav a:hover::after {
     font-size: 2.8rem;
     font-weight: 800;
     margin-bottom: 20px;
-    background: linear-gradient(90deg, #ffffff 0%, #ffffff 100%);
+    /* background: linear-gradient(90deg, #ffffff 0%, #ffffff 100%); */
+    color: #dae2ec;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
 }
@@ -291,7 +292,7 @@ footer {
 .footer-logo {
     font-size: 1.3rem;
     font-weight: 700;
-    background: #3b82f6;
+    background: #ffffff;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
 }
