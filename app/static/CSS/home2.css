@@ -250,7 +250,7 @@ nav a:hover::after {
 .step-number {
     width: 44px;
     height: 44px;
-    background: linear-gradient(90deg, #3b82f6 0%, #10b981 100%);
+    background: #3b82f6;
     color: white;
     border-radius: 50%;
     display: flex;
