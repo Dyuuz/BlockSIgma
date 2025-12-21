@@ -704,7 +704,7 @@ async def fetch_12hrs_summary(db: AsyncSession):
         first_stmt = (select(Prediction).order_by(
             Prediction.predicted_time.asc()).limit(1))
         first_result = await db.execute(first_stmt)
-        print(f"Checking current 12 predictions: {first_result.scalars().first()}")
+        # print(f"Checking current 12 predictions: {first_result.scalars().first()}")
         
         first = first_result.scalars().first().predicted_time
         # first = await convert_datetime(first)
