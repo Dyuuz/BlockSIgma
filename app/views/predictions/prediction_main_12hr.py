@@ -334,7 +334,6 @@ async def save_exit_12hr_summary(session: AsyncSession, update_label="Closure"):
                 TwelveHoursSummary.from_ == from_time)
         )
         current_summary = from_time_check.scalars().all()
-        print(f"Checking current summary: {current_summary}")
 
         if not current_summary:
             await create_12hr_summary(session, twelve_hrs_summary)
@@ -705,6 +704,8 @@ async def fetch_12hrs_summary(db: AsyncSession):
     first_stmt = (select(Prediction).order_by(
         Prediction.predicted_time.asc()).limit(1))
     first_result = await db.execute(first_stmt)
+    print(f"Checking current 12 predictions: {first_result.scalars().first()}")
+    
     first = first_result.scalars().first().predicted_time
     # first = await convert_datetime(first)
 
