@@ -326,12 +326,15 @@ async def save_exit_12hr_summary(session: AsyncSession, update_label="Closure"):
     try:
         # print(f"Starting to save the last 12hr summary...")
         twelve_hrs_summary = await fetch_12hrs_summary(session)
+        print(f"Twelve hours summary: {twelve_hrs_summary}")
+        
         from_time = twelve_hrs_summary["from"]
         from_time_check = await session.execute(
             select(TwelveHoursSummary).where(
                 TwelveHoursSummary.from_ == from_time)
         )
         current_summary = from_time_check.scalars().all()
+        print(f"Checking current summary: {current_summary}")
 
         if not current_summary:
             await create_12hr_summary(session, twelve_hrs_summary)
