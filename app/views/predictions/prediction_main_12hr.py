@@ -700,38 +700,40 @@ async def fetch_12hrs_summary(db: AsyncSession):
 
     Data is pulled and calculated directly from the database using async queries.
     """
+    try:
+        first_stmt = (select(Prediction).order_by(
+            Prediction.predicted_time.asc()).limit(1))
+        first_result = await db.execute(first_stmt)
+        print(f"Checking current 12 predictions: {first_result.scalars().first()}")
+        
+        first = first_result.scalars().first().predicted_time
+        # first = await convert_datetime(first)
 
-    first_stmt = (select(Prediction).order_by(
-        Prediction.predicted_time.asc()).limit(1))
-    first_result = await db.execute(first_stmt)
-    print(f"Checking current 12 predictions: {first_result.scalars().first()}")
-    
-    first = first_result.scalars().first().predicted_time
-    # first = await convert_datetime(first)
+        dt = datetime.fromisoformat(f"{first}")
+        to = dt + timedelta(hours=12)
+        # last = await convert_datetime(last)
 
-    dt = datetime.fromisoformat(f"{first}")
-    to = dt + timedelta(hours=12)
-    # last = await convert_datetime(last)
+        count_stmt = select(func.count(Prediction.id))
+        count_result = await db.execute(count_stmt)
+        total_count = count_result.scalar()
 
-    count_stmt = select(func.count(Prediction.id))
-    count_result = await db.execute(count_stmt)
-    total_count = count_result.scalar()
+        acc_stmt = select(Prediction).where(Prediction.achievement == "Reached")
+        acc_result = await db.execute(acc_stmt)
+        accuracy_len = len(acc_result.scalars().all())
+        accuracy = round((accuracy_len/total_count) *
+                        100, 1) if total_count else 0.0
+        accuracy_percent = f"{accuracy}%"
 
-    acc_stmt = select(Prediction).where(Prediction.achievement == "Reached")
-    acc_result = await db.execute(acc_stmt)
-    accuracy_len = len(acc_result.scalars().all())
-    accuracy = round((accuracy_len/total_count) *
-                     100, 1) if total_count else 0.0
-    accuracy_percent = f"{accuracy}%"
+        return {
+            "from": first,
+            "to": to,
+            "number of reached": accuracy_len,
+            "number of predictions": total_count,
+            "accuracy": accuracy_percent
+        }
 
-    return {
-        "from": first,
-        "to": to,
-        "number of reached": accuracy_len,
-        "number of predictions": total_count,
-        "accuracy": accuracy_percent
-    }
-
+    except Exception as e: 
+        print(f"Error during fetching 12hr summary data: {e}")
 
 async def fetch_12hrs_buy_summary(db: AsyncSession):
     """
