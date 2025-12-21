@@ -38,7 +38,7 @@ header {
 .logo {
     font-size: 24px;
     font-weight: 800;
-    background: #10b981;
+    background: #3b82f6;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     display: flex;
@@ -291,7 +291,7 @@ footer {
 .footer-logo {
     font-size: 1.3rem;
     font-weight: 700;
-    background: #10b981;
+    background: #3b82f6;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
 }
