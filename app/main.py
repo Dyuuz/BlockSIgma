@@ -108,9 +108,9 @@ async def startup_event():
 
     print("Database initialization complete.")
     scheduler.add_job(run_predictions_for_chunk, 'cron', hour='0,12', minute=0, id="job_chunk_12hr", replace_existing=True)
-    scheduler.add_job(get_current_predictions, 'interval', seconds=30, replace_existing=True)
+    scheduler.add_job(get_current_predictions, 'interval', seconds=30, id="refresh_12hr_prediction", name="refresh_12hr_prediction", replace_existing=True)
     scheduler.add_job(run_4hr_prediction, 'cron', hour='1,5,9,13,17,21', minute=0, id="job_chunk_4hr", replace_existing=True)
-    scheduler.add_job(refresh_4hr_prediction, 'interval', seconds=30, replace_existing=True)
+    scheduler.add_job(refresh_4hr_prediction, 'interval', seconds=30, id="refresh_4hr_prediction", name="refresh_4hr_prediction", replace_existing=True)
     # scheduler.add_job(scheduled_signal_update,'interval', seconds=10, id='signal_update_job', replace_existing=True)
     # scheduler.add_job(main, 'interval', seconds=20, id='binance_price', replace_existing=True)
     print("Scheduled jobs:", scheduler.get_jobs(), flush=True)
