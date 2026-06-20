@@ -32,6 +32,9 @@ from fastapi.responses import JSONResponse
 import gc
 from app.utils.mem_logger import log_memory
 from app.utils.mail_api import send_email_via_brevo
+import time
+from sqlalchemy import update as sa_update, bindparam
+from sqlalchemy import func
 
 app = FastAPI()
 load_dotenv()
@@ -79,6 +82,10 @@ def get_filtered_assetchunk_status(asset_list):
             chunk_disabled.append(symbol)
 
     return chunk, chunk_disabled
+
+
+async def get_filtered_assetchunk_status_async(asset_list):
+    return await asyncio.to_thread(get_filtered_assetchunk_status, asset_list)
 
 
 async def get_asset_chunks(rows):
@@ -199,7 +206,7 @@ async def run_predictions_for_chunk():
 
         for job_id, (label, assets) in chunks.items():
             try:
-                asset_list, disabled = get_filtered_assetchunk_status(assets)
+                asset_list, disabled = await get_filtered_assetchunk_status_async(assets)
                 await delete_disabled_assets(disabled)
 
                 # Offload sync model prediction to background thread
@@ -380,7 +387,7 @@ async def save_exit_4hr_buy_summary(session: AsyncSession, update_label="Closure
         current_summary = from_time_check.scalars().all()
 
         latest_predictions = await fetch_latest_prediction()
-        details = [item for item in latest_predictions if item["prediction_status"] == "Buy"]
+        # details = [item for item in latest_predictions if item["prediction_status"] == "Buy"]
         
         if not current_summary:
             await create_4hr_buy_summary(session, four_hrs_buy_summary)
@@ -401,7 +408,8 @@ async def save_exit_4hr_buy_summary(session: AsyncSession, update_label="Closure
         await session.refresh(last_instance)
         print(f"[✔] 4hr(buy) summary table updated.")
         
-        del four_hrs_buy_summary, current_summary, last_instance, latest_predictions, details
+        del four_hrs_buy_summary, current_summary, last_instance, latest_predictions
+        # del details
         
         gc.collect()
         return True
@@ -499,6 +507,7 @@ async def get_current_predictions() -> None:
     Logs progress and errors to the console.
     """
     try:
+        t0 = time.monotonic()
         log_memory("4hr Current memory usage")
         global four_hour_job_state
         if four_hour_job_state:
@@ -516,26 +525,39 @@ async def get_current_predictions() -> None:
             print("Symbols list is empty")
             return
 
-        all_assets, asset_list_disabled = get_filtered_assetchunk_status(symbols)
+        t1 = time.monotonic()
+        # print(f"[4hr TIMER] Fetch symbols: {t1 - t0:.2f}s")
+        
+        all_assets, asset_list_disabled = await get_filtered_assetchunk_status_async(symbols)
         await delete_disabled_assets(asset_list_disabled)
+        t2 = time.monotonic()
+        # print(f"[4hr TIMER] get_filtered_assetchunk_status + delete_disabled: {t2 - t1:.2f}s")
+
 
         async with httpx.AsyncClient() as client:
             resp = await client.get("https://api.binance.com/api/v3/ticker/24hr")
             resp.raise_for_status()
             tickers = resp.json()
+            
+        t3 = time.monotonic()
+        # print(f"[4hr TIMER] Binance 24hr ticker fetch: {t3 - t2:.2f}s")
 
         quote = "USDT"
         for item in tickers:
             all_prices[item['symbol'].replace(quote, "")] = float(item['lastPrice'])
 
+        updates = []
         updated_count = 0
+
         async with AsyncSessionLocal() as session:
-            stream = await session.stream(select(Prediction4hr))
-            async for row in stream.scalars():
+            result = await session.execute(select(Prediction4hr))
+            rows = result.scalars().all()
+
+            for row in rows:
                 item = row.as_dict()
                 symbol = item["symbol"]
                 current = all_prices.get(symbol)
-                
+
                 if current is None:
                     continue
 
@@ -546,26 +568,27 @@ async def get_current_predictions() -> None:
                 prev_dynamic_sl = item["dynamic_sl"]
                 prediction_status = item["prediction_status"]
                 achievement = item["achievement"]
+                time_reached = item["time_reached"]
                 prediction_status_determiner = predicted > price_at_predicted_time
-                time_reached = datetime.now(timezone.utc)
+                now_reached = datetime.now(timezone.utc)
 
-                # 🔹 Update prediction status
+                # 🔹 Same logic as original, just reassigning local vars instead of row.*
                 if achievement == "Not Reached" or achievement is None:
                     if prediction_status_determiner and current > predicted:
-                        row.achievement = "Reached"
-                        row.time_reached = time_reached
+                        achievement = "Reached"
+                        time_reached = now_reached
                         if prediction_status == "Buy":
-                            row.prediction_status = "Buy - Reached"
+                            prediction_status = "Buy - Reached"
                     elif not prediction_status_determiner and current < predicted:
-                        row.achievement = "Reached"
-                        row.time_reached = time_reached
+                        achievement = "Reached"
+                        time_reached = now_reached
                         if prediction_status == "Buy":
-                            row.prediction_status = "Buy - Reached"
+                            prediction_status = "Buy - Reached"
                     else:
-                        row.achievement = "Not Reached"
+                        achievement = "Not Reached"
 
-                if row.achievement == "Reached" and row.prediction_status in ("Buy", "Reached"):
-                    row.prediction_status = "Buy - Reached"
+                if achievement == "Reached" and prediction_status in ("Buy", "Reached"):
+                    prediction_status = "Buy - Reached"
 
                 diff = ((current - price_at_predicted_time) / price_at_predicted_time) * 100
                 status = current > previous_current_price
@@ -576,30 +599,54 @@ async def get_current_predictions() -> None:
                 rrr = dynamic_tp / dynamic_sl if dynamic_sl != 0 else 0
                 sl_status = dynamic_sl > prev_dynamic_sl if prev_dynamic_sl else None
 
-                row.current_price = round(current, 8)
-                row.price_change_status = status
-                row.price_difference_currently = round(diff, 3)
-                row.current_status = stat >= 1.2
-                row.dynamic_sl = round(dynamic_sl, 3)
-                row.rrr = round(rrr, 2)
-                row.sl_status = sl_status
+                updates.append({
+                    "id": row.id,
+                    "achievement": achievement,
+                    "time_reached": time_reached,
+                    "prediction_status": prediction_status,
+                    "current_price": round(current, 8),
+                    "price_change_status": status,
+                    "price_difference_currently": round(diff, 3),
+                    "current_status": stat >= 1.2,
+                    "dynamic_sl": round(dynamic_sl, 3),
+                    "rrr": round(rrr, 2),
+                    "sl_status": sl_status,
+                })
 
                 updated_count += 1
-                if updated_count % BATCH_SIZE == 0:
+
+                if len(updates) >= BATCH_SIZE:
+                    await session.execute(
+                        sa_update(Prediction4hr),
+                        updates
+                    )
                     await session.commit()
                     print(f"[✔] Committed {updated_count} rows so far...")
+                    updates = []
 
-            await session.commit()
+            if updates:
+                await session.execute(
+                    sa_update(Prediction4hr),
+                    updates
+                )
+                await session.commit()
 
+        t4 = time.monotonic()
+        # print(f"[4hr TIMER] Row update loop ({updated_count} rows): {t4 - t3:.2f}s")
         print(f"[✔] Successfully updated {updated_count} rows in 4hr Prediction Table.")
 
         async for db in get_db():
             await save_exit_4hr_summary(db, update_label="Patch")
             await save_exit_4hr_buy_summary(db, update_label="Patch")
+            
+        t5 = time.monotonic()
+        # print(f"[4hr TIMER] Summary save: {t5 - t4:.2f}s")
 
         del tickers, all_prices, all_assets
         gc.collect()
         log_memory("4hr Current memory usage after successive update")
+        
+        print(f"[4hr Refresh TIMER] TOTAL: {t5 - t0:.2f}s")
 
     except Exception as e: 
         print(f"Error during 4hr prediction data update: {e}")
@@ -709,9 +756,10 @@ async def fetch_4hrs_summary(db: AsyncSession):
     count_result = await db.execute(count_stmt)
     total_count = count_result.scalar()
 
-    acc_stmt = select(Prediction4hr).where(Prediction4hr.achievement == "Reached")
+    acc_stmt = select(func.count(Prediction4hr.id)).where(Prediction4hr.achievement == "Reached")
     acc_result = await db.execute(acc_stmt)
-    accuracy_len = len(acc_result.scalars().all())
+    accuracy_len = acc_result.scalar()
+    
     accuracy = round((accuracy_len/total_count) * 100, 1) if total_count else 0.0
     accuracy_percent = f"{accuracy}%"
 
@@ -760,15 +808,16 @@ async def fetch_4hrs_buy_summary(db: AsyncSession):
     count_result = await db.execute(count_stmt)
     total_count = len(count_result.scalars().all())
 
-    acc_stmt = select(Prediction4hr).where(and_(
+    acc_stmt = select(func.count(Prediction4hr.id)).where(and_(
         Prediction4hr.achievement == "Reached",
         Prediction4hr.prediction_status == "Buy - Reached"
-    )
-    )
+    ))
     acc_result = await db.execute(acc_stmt)
-    accuracy_len = len(acc_result.scalars().all())
+    accuracy_len = acc_result.scalar()
+    
     accuracy = round((accuracy_len/total_count) * 100, 1) if total_count else 0.0
     accuracy_percent = f"{accuracy}%"
+    
     return {
         "from": from_first,
         "to": to,
