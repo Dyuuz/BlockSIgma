@@ -35,6 +35,7 @@ from app.utils.mail_api import send_email_via_brevo
 import time
 from sqlalchemy import update as sa_update, bindparam
 from sqlalchemy import func
+import threading
 
 app = FastAPI()
 load_dotenv()
@@ -52,7 +53,6 @@ logger = logging.getLogger(__name__)
 
 scheduler = BackgroundScheduler(timezone=timezone.utc)
 
-client = Client(api_key, api_secret)
 supabase = create_client(supabase_url,supabase_key)
 TABLE_PREDICTION = "predictions_v3_test" 
 TABLE_SYMBOL = "symbols_test" 
@@ -61,13 +61,32 @@ EXPECTED_JOB_IDS_4hr = ["job_chunk1", "job_chunk2", "job_chunk3"]
 results_lock = asyncio.Lock()
 
 four_hour_job_state = False
+_exchange_info_cache = {"data": None, "fetched_at": 0}
+_exchange_info_lock = threading.Lock()
+EXCHANGE_INFO_TTL = 300  # 5 minutes
+
+_client = None
+def get_client():
+    global _client
+    if _client is None:
+        _client = Client(api_key, api_secret)
+    return _client
+
+
+def get_cached_exchange_info_sync():
+    now = time.monotonic()
+    with _exchange_info_lock:
+        if _exchange_info_cache["data"] is None or (now - _exchange_info_cache["fetched_at"]) > EXCHANGE_INFO_TTL:
+            _exchange_info_cache["data"] = get_client().get_exchange_info()
+            _exchange_info_cache["fetched_at"] = now
+        return _exchange_info_cache["data"]
+
 
 def get_filtered_assetchunk_status(asset_list):
     """
     Returns the assets with active trading status from a list of asset gotten from Binance API
     """
-    client = Client(api_key, api_secret)
-    exchange_info = client.get_exchange_info()
+    exchange_info = get_cached_exchange_info_sync()
     # print("Starting to filter assets with active trading status from asset_list")
 
     active_spot_symbols = [symbol['symbol'] for symbol in exchange_info['symbols'] if symbol['status'] == 'TRADING']
@@ -226,7 +245,7 @@ async def run_predictions_for_chunk():
                         final_results.extend(res)
 
                     quote = "USDT"
-                    info = await asyncio.to_thread(client.get_exchange_info)
+                    info = await asyncio.to_thread(get_cached_exchange_info_sync)
                     active_symbols = {s["symbol"] for s in info["symbols"]}
 
                     filtered_result = [
