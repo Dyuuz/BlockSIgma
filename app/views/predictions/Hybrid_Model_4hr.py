@@ -31,11 +31,18 @@ import asyncio
 
 api_key = os.getenv("BINANCE_API_KEY")
 api_secret = os.getenv("BINANCE_API_SECRET")
-client = Client(api_key, api_secret)
 
 # LSTM model: single reusable graph
 TIMESTEPS = 10
 FEATURES = 1
+
+_client = None
+def get_client():
+    global _client
+    if _client is None:
+        _client = Client(api_key, api_secret)
+    return _client
+
 
 def _build_reusable_model():
     """Build once; reuse for every symbol (weights reinitialized each run)."""
@@ -107,7 +114,7 @@ def fetch_binance_ohlcv(symbol, interval='30m', lookback='475 hours ago UTC', re
 
     for attempt in range(retries):
         try:
-            kline_data = client.get_historical_klines(symbol, interval, lookback)
+            kline_data = get_client().get_historical_klines(symbol, interval, lookback)
             break
         except BinanceAPIException as e:
             print(f"[{symbol}] Attempt {attempt+1}: BinanceAPIException - {e}")

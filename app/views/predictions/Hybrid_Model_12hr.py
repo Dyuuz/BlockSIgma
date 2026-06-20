@@ -29,13 +29,20 @@ from binance.exceptions import BinanceAPIException
 # Binance client
 api_key = os.getenv("BINANCE_API_KEY")
 api_secret = os.getenv("BINANCE_API_SECRET")
-client = Client(api_key, api_secret)
 
 # LSTM: single global model + fixed signature
 TIMESTEPS = 10
 FEATURES = 1
 EPOCHS = 10
 BATCH_SIZE = 32
+
+_client = None
+def get_client():
+    global _client
+    if _client is None:
+        _client = Client(api_key, api_secret)
+    return _client
+
 
 def _build_reusable_model():
     x = Input(shape=(TIMESTEPS, FEATURES))
@@ -100,7 +107,7 @@ def fetch_binance_ohlcv(symbol, interval='1h', lookback='500 hours ago UTC', ret
 
     for attempt in range(retries):
         try:
-            kline_data = client.get_historical_klines(symbol, interval, lookback)
+            kline_data = get_client().get_historical_klines(symbol, interval, lookback)
             break
         except BinanceAPIException as e:
             print(f"[{symbol}] Attempt {attempt+1}: BinanceAPIException - {e}")
