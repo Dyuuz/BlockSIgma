@@ -758,7 +758,7 @@ async def fetch_4hrs_summary(db: AsyncSession):
     Data is pulled and calculated directly from the database using async queries.
     """
     
-    first_stmt = select(Prediction4hr).where(Prediction4hr.interval == "4hr").order_by(Prediction4hr.predicted_time.asc()).limit(1)
+    first_stmt = select(Prediction4hr).where(Prediction4hr.interval == "4hr").order_by(Prediction4hr.predicted_time.desc()).limit(1)
     first_result = await db.execute(first_stmt)
     first = first_result.scalars().first().predicted_time
     
